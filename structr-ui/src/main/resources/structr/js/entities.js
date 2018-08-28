@@ -1690,6 +1690,8 @@ var _Entities = {
 		var b = el.children('.expand_icon').first();
 		var displayName = getElementDisplayName(Structr.entity(id));
 
+		console.log(element, expanded, b, displayName, _Entities.isExpanded(element));
+
 		if (_Entities.isExpanded(element)) {
 
 			$.each(el.children('.node'), function(i, child) {

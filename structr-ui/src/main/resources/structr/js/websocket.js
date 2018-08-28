@@ -449,7 +449,7 @@ function wsConnect() {
 			} else if (command === 'CREATE' || command === 'ADD' || command === 'IMPORT') {
 
 				$(result).each(function (i, entity) {
-					if (command === 'CREATE' && (entity.isPage || entity.isFolder || entity.isFile || entity.isImage || entity.isVideo || entity.isUser || entity.isGroup || entity.isWidget || entity.isResourceAccess)) {
+					if (command === 'CREATE' && (entity.isSite || entity.isPage || entity.isFolder || entity.isFile || entity.isImage || entity.isVideo || entity.isUser || entity.isGroup || entity.isWidget || entity.isResourceAccess)) {
 						StructrModel.create(entity);
 					} else {
 

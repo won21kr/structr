@@ -119,7 +119,7 @@ public interface Page extends DOMNode, Linkable, Document, DOMImplementation {
 		type.overrideMethod("getElementById",              false, "return " + Page.class.getName() + ".getElementById(this, arg0);");
 		type.overrideMethod("getFirstChild",               false, "return " + Page.class.getName() + ".getFirstChild(this);");
 		type.overrideMethod("getChildNodes",               false, "return " + Page.class.getName() + ".getChildNodes(this);");
-
+		
 		type.overrideMethod("render",                      false, Page.class.getName() + ".render(this, arg0, arg1);");
 		type.overrideMethod("normalizeDocument",           false, "normalize();");
 		type.overrideMethod("renderContent",               false, "");
@@ -176,7 +176,8 @@ public interface Page extends DOMNode, Linkable, Document, DOMImplementation {
 		createElement2.setSource("return " + Page.class.getName() + ".createElement(this, tag, false);");
 
 		site.relate(type, "CONTAINS", Cardinality.OneToMany, "site", "pages");
-
+		type.relate(type, "CONTAINS", Cardinality.OneToMany, "parentPage", "childPages");
+		
 		// view configuration
 		type.addViewProperty(PropertyView.Public, "linkingElements");
 		type.addViewProperty(PropertyView.Public, "enableBasicAuth");
@@ -185,11 +186,15 @@ public interface Page extends DOMNode, Linkable, Document, DOMImplementation {
 		type.addViewProperty(PropertyView.Public, "children");
 		type.addViewProperty(PropertyView.Public, "name");
 		type.addViewProperty(PropertyView.Public, "owner");
+		type.addViewProperty(PropertyView.Public, "parentPage");
+		type.addViewProperty(PropertyView.Public, "childPages");
 		type.addViewProperty(PropertyView.Public, "site");
 
 		type.addViewProperty(PropertyView.Ui, "pageCreatesRawData");
 		type.addViewProperty(PropertyView.Ui, "dontCache");
 		type.addViewProperty(PropertyView.Ui, "children");
+		type.addViewProperty(PropertyView.Ui, "parentPage");
+		type.addViewProperty(PropertyView.Ui, "childPages");
 		type.addViewProperty(PropertyView.Ui, "site");
 	}}
 
@@ -415,7 +420,7 @@ public interface Page extends DOMNode, Linkable, Document, DOMImplementation {
 
 		while (subNode != null) {
 
-			if (!subNode.isDeleted() && renderContext.getSecurityContext().isVisible(subNode)) {
+			if (!(subNode instanceof Page) && !subNode.isDeleted() && renderContext.getSecurityContext().isVisible(subNode)) {
 
 				subNode.render(renderContext, depth);
 			}
@@ -735,8 +740,13 @@ public interface Page extends DOMNode, Linkable, Document, DOMImplementation {
 
 	static void checkHierarchy(final Page thisPage, final Node otherNode) throws DOMException {
 
+		// subpages are possible now
+		if (otherNode instanceof Page) {
+			return;
+		}
+		
 		// verify that this document has only one document element
-		if (thisPage.getDocumentElement() != null) {
+		if (otherNode instanceof Html && thisPage.getDocumentElement() != null) {
 			throw new DOMException(DOMException.HIERARCHY_REQUEST_ERR, HIERARCHY_REQUEST_ERR_MESSAGE_DOCUMENT);
 		}
 

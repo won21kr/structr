@@ -1131,7 +1131,7 @@ var Structr = {
 				$(this).addClass('noclick');
 			},
 			drag: function(e, ui) {
-				var w = ui.position.left - 12;
+				var w = ui.position.left - 6;
 				slideoutElement.css({
 					width: w + 'px'
 				});
@@ -1139,7 +1139,8 @@ var Structr = {
 				ui.position.left -= (ui.helper.width() / 2 - 6);
 				var oldLeftSlideoutWidth = slideoutWidth;
 				slideoutWidth = w + 12;
-				$('.node.page', slideoutElement).width(w - 25);
+				$('.ver-scrollable > .node.site', slideoutElement).width(w - 25);
+				$('.ver-scrollable > .node.page', slideoutElement).width(w - 25);
 
 				if (typeof callback === 'function') {
 					LSWrapper.setItem(_Pages.leftSlideoutWidthKey, slideoutElement.width());
@@ -1166,7 +1167,7 @@ var Structr = {
 			if (Math.abs(l) <= 3) {
 				wasOpen = true;
 				osw = sw;
-				s.animate({left: - sw -1 + 'px'}, 100, function () {
+				s.animate({left: - sw + 5 + 'px'}, 100, function () {
 					if (typeof callback === 'function') {
 						callback(wasOpen, -osw, 0);
 					}

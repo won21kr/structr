@@ -40,8 +40,9 @@ var _Pages = {
 	selectedTypeKey: 'structrSelectedType_' + port,
 	init: function() {
 
+		_Pager.initPager('sites',   'Site', 1, 25, 'name', 'asc');
 		_Pager.initPager('pages',   'Page', 1, 25, 'name', 'asc');
-		_Pager.forceAddFilters('pages', 'Page', { hidden: false });
+		_Pager.forceAddFilters('pages', 'Page', { hidden: false, site: null, parentPage: null });
 		_Pager.initPager('files',   'File', 1, 25, 'name', 'asc');
 		_Pager.initPager('folders', 'Folder', 1, 25, 'name', 'asc');
 		_Pager.initPager('images',  'Image', 1, 25, 'name', 'asc');
@@ -222,6 +223,8 @@ var _Pages = {
 		previews.append(previewTabs);
 
 		_Pages.refresh();
+		
+		_Dragndrop.makeSortable(pages);
 
 		if (activeTabLeft) {
 			$('#' + activeTabLeft).addClass('active').click();
@@ -259,42 +262,52 @@ var _Pages = {
 
 		pagesSlideout.append('<div class="ver-scrollable" id="pagesTree"></div>');
 		pages = $('#pagesTree', pagesSlideout);
-
-		var pPager = _Pager.addPager('pages', pages, true, 'Page', null, function(pages) {
-			pages.forEach(function(page) {
-				StructrModel.create(page);
+		
+		// getByType: function(type, pageSize, page, sort, order, properties, includeDeletedAndHidden, callback) {
+		// function(type, pageSize, page, sort, order, properties, callback, exact, view) {
+		Command.query('Site', 1000, 1, 'name', 'asc', null, function(sites) { console.log(sites);
+			
+			sites.forEach(function(site) {
+				StructrModel.create(site);
 			});
-			_Pages.hideAllPreviews();
-		});
-		pPager.cleanupFunction = function () {
-			_Pages.clearPreviews();
-			$('.node', pPager.el).remove();
-		};
-		pPager.pager.append('Filters: <input type="text" class="filter" data-attribute="name" placeholder="Name" title="Here you can filter the pages list by page name"/>');
-		var categoryFilter = $('<input type="text" class="filter page-label" data-attribute="category" placeholder="Category" />');
-		pPager.pager.append(categoryFilter);
-		pPager.activateFilterElements();
 
-		$.ajax({
-			url: '/structr/rest/Page/category',
-			success: function(data) {
-				var categories = [];
-				data.result.forEach(function(page) {
-					if (page.category !== null && categories.indexOf(page.category) === -1) {
-						categories.push(page.category);
-					}
+			var pPager = _Pager.addPager('pages', pages, true, 'Page', null, function(pages) {
+				pages.forEach(function(page) {
+					StructrModel.create(page);
 				});
-				categories.sort();
+				_Pages.hideAllPreviews();
+			});
+			pPager.cleanupFunction = function () {
+				_Pages.clearPreviews();
+				$('.node', pPager.el).remove();
+			};
+			pPager.pager.append('Filters: <input type="text" class="filter" data-attribute="name" placeholder="Name" title="Here you can filter the pages list by page name"/>');
+			var categoryFilter = $('<input type="text" class="filter page-label" data-attribute="category" placeholder="Category" />');
+			pPager.pager.append(categoryFilter);
+			pPager.activateFilterElements();
+			
+			$.ajax({
+				url: '/structr/rest/Page/category',
+				success: function(data) {
+					var categories = [];
+					data.result.forEach(function(page) {
+						if (page.category !== null && categories.indexOf(page.category) === -1) {
+							categories.push(page.category);
+						}
+					});
+					categories.sort();
 
-				var helpText = 'Here you can filter the pages list by page category.';
-				if (categories.length > 0) {
-					helpText += 'Available categories are: \n\n' + categories.join('\n');
+					var helpText = 'Here you can filter the pages list by page category.';
+					if (categories.length > 0) {
+						helpText += 'Available categories are: \n\n' + categories.join('\n');
+					}
+					helpText += '\n\nPro Tip: If category names have identical substrings you can filter for multiple categories at once.';
+
+					categoryFilter.attr('title', helpText);
 				}
-				helpText += '\n\nPro Tip: If category names have identical substrings you can filter for multiple categories at once.';
-
-				categoryFilter.attr('title', helpText);
-			}
+			});
 		});
+
 
 		previewTabs.append('<li id="import_page" title="Import Template" class="button"><i class="add_button icon ' + _Icons.getFullSpriteClass(_Icons.pull_file_icon) + '" /></li>');
 		previewTabs.append('<li id="add_page" title="Add page" class="button"><i class="add_button icon ' + _Icons.getFullSpriteClass(_Icons.add_icon) + '" /></li>');
@@ -362,6 +375,11 @@ var _Pages = {
 
 	},
 	addTab: function(entity) {
+		
+		if (previewTabs.children('#show_' + entity.id).length) {
+			return;
+		}
+		
 		previewTabs.append('<li id="show_' + entity.id + '" class="page ' + entity.id + '_"></li>');
 
 		var tab = $('#show_' + entity.id, previews);
@@ -481,6 +499,10 @@ var _Pages = {
 
 	},
 	resetTab: function(element) {
+		
+		if (!element || !element.children) {
+			return;
+		}
 
 		_Logger.log(_LogType.PAGES, 'resetTab', element);
 
@@ -683,11 +705,11 @@ var _Pages = {
 		element.off('click');
 
 	},
-	appendPageElement: function(entity) {
+	appendSiteElement: function(entity) {
 
 		entity = StructrModel.ensureObject(entity);
 
-		var hasChildren = entity.children && entity.children.length;
+		var hasChildren = entity.pages && entity.pages.length;
 
 		if (!pages) return;
 
@@ -695,7 +717,47 @@ var _Pages = {
 			return;
 		}
 
-		pages.append('<div id="id_' + entity.id + '" class="node page"></div>');
+		pages.append('<div id="id_' + entity.id + '" class="node site"></div>');
+		var div = Structr.node(entity.id);
+
+		_Dragndrop.makeSortable(div);
+
+		$('.button', div).on('mousedown', function(e) {
+			e.stopPropagation();
+		});
+
+		div.append('<i class="typeIcon ' + _Icons.getFullSpriteClass(_Icons.site_icon) + '" />'
+				+ '<b title="' + entity.name + '" class="name_">' + fitStringToWidth(entity.name, 200) + '</b> <span class="id">' + entity.id + '</span>' + (entity.position ? ' <span class="position">' + entity.position + '</span>' : ''));
+
+		_Entities.appendExpandIcon(div, entity, hasChildren);
+		_Entities.appendAccessControlIcon(div, entity);
+
+		div.append('<i title="Delete site \'' + entity.name + '\'" class="delete_icon button ' + _Icons.getFullSpriteClass(_Icons.delete_icon) + '" />');
+		$('.delete_icon', div).on('click', function(e) {
+			e.stopPropagation();
+			_Entities.deleteNode(this, entity);
+		});
+
+		_Entities.appendEditPropertiesIcon(div, entity);
+
+		_Elements.enableContextMenuOnElement(div, entity);
+		_Entities.setMouseOver(div);
+	},
+	appendPageElement: function(entity) {
+
+		entity = StructrModel.ensureObject(entity);
+
+		var hasChildren = entity.children && entity.children.length;
+		
+		var parentElement = entity.site ? Structr.node(entity.site.id) : (entity.parentPage ? Structr.node(entity.parentPage.id) : pages);
+		
+		if (!pages) return;
+
+		if ($('#id_' + entity.id, pages).length > 0) {
+			return;
+		}
+
+		parentElement.append('<div id="id_' + entity.id + '" class="node page"></div>');
 		var div = Structr.node(entity.id);
 
 		_Dragndrop.makeSortable(div);
@@ -1241,14 +1303,15 @@ var _Pages = {
 	},
 	pagesTabResizeContent: function () {
 		var storedLeftSlideoutWidth = LSWrapper.getItem(_Pages.leftSlideoutWidthKey);
-		var psw = storedLeftSlideoutWidth ? parseInt(storedLeftSlideoutWidth) : (pagesSlideout.width() + 12);
-		$('.node.page', pagesSlideout).width(psw - 35);
+		var psw = storedLeftSlideoutWidth ? parseInt(storedLeftSlideoutWidth) : (pagesSlideout.width() + 6);
+		$('.ver-scrollable > .node.site', pagesSlideout).width(psw - 35);
+		$('.ver-scrollable > .node.page', pagesSlideout).width(psw - 35);
 	},
 	leftSlideoutTrigger: function (triggerEl, slideoutElement, otherSlideouts, activeTabKey, openCallback, closeCallback) {
 		if ($(triggerEl).hasClass('noclick')) {
 			$(triggerEl).removeClass('noclick');
 		} else {
-			if (Math.abs(slideoutElement.position().left + slideoutElement.width() + 12) <= 3) {
+			if (Math.abs(slideoutElement.position().left + slideoutElement.width() + 6) <= 3) {
 				Structr.closeLeftSlideOuts(otherSlideouts, activeTabKey, closeCallback);
 				Structr.openLeftSlideOut(triggerEl, slideoutElement, activeTabKey, openCallback);
 			} else {

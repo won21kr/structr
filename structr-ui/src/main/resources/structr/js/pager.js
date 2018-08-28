@@ -93,11 +93,12 @@ var _Pager = {
 		_Logger.log(_LogType.PAGER, 'add Pager', type, pageSize[id], page[id], sortKey[id], sortOrder[id]);
 		var pager = new Pager(id, el, rootOnly, type, view, callback);
 		pager.transportFunction = function() {
-			var filterAttrs = pager.getNonEmptyFilterAttributes();
+			//var filterAttrs = pager.getNonEmptyFilterAttributes();
+			var filterAttrs = pager.getFilterAttributes();
 			if (typeof optionalTransportFunction === "function") {
 				optionalTransportFunction(id, pageSize[id], page[id], filterAttrs, pager.internalCallback);
 			} else {
-				Command.query(pager.type, pageSize[id], page[id], sortKey[id], sortOrder[id], filterAttrs, pager.internalCallback, false, view);
+				Command.query(pager.type, pageSize[id] || 25, page[id] || 1, sortKey[id] || 'name', sortOrder[id] || 'asc', filterAttrs, pager.internalCallback, false, view);
 			}
 		};
 		pager.init();
@@ -305,6 +306,19 @@ var Pager = function (id, el, rootOnly, type, view, callback) {
 				pagerObj.transportFunction();
 			}
 		});
+	};
+
+	/**
+	 * @returns the filter attributes
+	 */
+	this.getFilterAttributes = function () {
+		var filters = {};
+
+		Object.keys(pagerFilters[pagerObj.id]).forEach(function(fa) {
+			filters[fa] = pagerFilters[pagerObj.id][fa];
+		});
+
+		return filters;
 	};
 
 	/**

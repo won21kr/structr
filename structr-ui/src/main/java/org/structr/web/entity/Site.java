@@ -19,6 +19,7 @@
 package org.structr.web.entity;
 
 import java.net.URI;
+import org.structr.common.ConstantBooleanTrue;
 import org.structr.common.PropertyView;
 import org.structr.core.graph.NodeInterface;
 import org.structr.schema.SchemaService;
@@ -34,6 +35,8 @@ public interface Site extends NodeInterface {
 
 		type.setImplements(URI.create("https://structr.org/v1.1/definitions/Site"));
 		type.setCategory("core");
+		
+		type.addBooleanProperty("isSite", PropertyView.Public, PropertyView.Ui).setReadOnly(true).addTransformer(ConstantBooleanTrue.class.getName());
 
 		type.addStringProperty("hostname", PropertyView.Public, PropertyView.Ui).setIndexed(true);
 		type.addIntegerProperty("port",    PropertyView.Public, PropertyView.Ui).setIndexed(true);

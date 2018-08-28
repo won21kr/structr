@@ -294,6 +294,7 @@ img.disabled {
 }
 
 #pages,
+#activeElements,
 #dataBinding,
 #localizations,
 #propertyDefinitions,
@@ -312,6 +313,14 @@ img.disabled {
 	border: none;
 	width: 399px;
 	padding: 6px;
+}
+
+#pages,
+#activeElements,
+#dataBinding,
+#localizations,
+.slideOutLeft {
+	padding-right: 0;
 }
 
 #users .node.user, #groups .node.group {
@@ -388,6 +397,10 @@ img.disabled {
 	background-color: #fff;
 }
 
+.slideOutLeft .compTab.active:active {
+	cursor: ew-resize;
+}
+
 .slideOutRight .compTab {
 	-webkit-transform: rotate(-90deg);
 	-moz-transform: rotate(-90deg);
@@ -431,8 +444,8 @@ img.disabled {
 
 #localizationsTab {
 	right: -61px;
-	width: 77px;
-	top: 394px;
+	width: 78px;
+	top: 400px;
 }
 
 #widgetsTab {
@@ -537,7 +550,7 @@ img.disabled {
 	overflow-x: hidden;
 }
 
-.ver-scrollable > .node, #widgets > .node, #remoteWidgets > .node {
+#widgets > .node, #remoteWidgets > .node {
 	width: 360px;
 }
 
@@ -548,7 +561,7 @@ img.disabled {
 }
 
 .slideOutLeft {
-	left: -412px;
+	left: -406px;
 	border-right: 1px solid rgba(0,0,0,.125) ! important;
 }
 
@@ -716,7 +729,7 @@ ul#previewTabs {
 	border-left: 1px solid rgba(0,0,0,.125);
 	border-right: 1px solid rgba(0,0,0,.125);
 	background-color: #f6f6f6;;
-	cursor: pointer ! important;
+	cursor: pointer;
 	list-style-type: none;
 	display: inline;
 	float: left;
@@ -1171,7 +1184,8 @@ i.button {
 	margin: 0 0 0 11px;
 }
 
-.slideOut .node.page {
+.slideOut .node.site,
+.slideOut .ver-scrollable > .node.page {
 	border: none;
 	padding: 2px 0px 2px 12px;
 	margin: 0 0 0 11px;
@@ -4392,7 +4406,7 @@ span.context-help-text {
  * START Icon Sprites
  */
 .sprite {
-	background-image: url(/structr/img/spritesheet.png);
+	background-image: url('/structr/img/spritesheet.png');
 	background-repeat: no-repeat;
 	display: inline-block;
 	width: 16px;
@@ -4789,24 +4803,28 @@ span.context-help-text {
 	background-position: -264px -172px;
 }
 
-.sprite-star {
+.sprite-sitemap {
 	background-position: -4px -196px;
 }
 
-.sprite-star_delete {
+.sprite-star {
 	background-position: -28px -196px;
+}
+
+.sprite-star_delete {
+	background-position: -52px -196px;
 }
 
 .sprite-structr-logo {
 	width: 86px;
 	height: 23px;
-	background-position: -52px -196px;
+	background-position: -76px -196px;
 }
 
 .sprite-structr-logo_92x60 {
 	width: 92px;
 	height: 60px;
-	background-position: -146px -196px;
+	background-position: -170px -196px;
 }
 
 .sprite-structr_gray_100x27 {

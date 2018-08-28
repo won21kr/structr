@@ -943,6 +943,11 @@ public interface DOMNode extends NodeInterface, Node, Renderable, DOMAdoptable, 
 		if (doc != null) {
 
 			Document otherDoc = otherNode.getOwnerDocument();
+			
+			// subpages are possible now
+			if (otherNode instanceof Page) {
+				return;
+			}
 
 			// Shadow doc is neutral
 			if (otherDoc != null && !doc.equals(otherDoc) && !(doc instanceof ShadowDocument)) {

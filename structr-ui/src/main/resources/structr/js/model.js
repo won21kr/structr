@@ -52,7 +52,7 @@ var StructrModel = {
 	 * Create a new object in the model and potentially append a UI element
 	 * If refId is set, insert before this node
 	 */
-	create: function(data, refId, append) {
+	create: function(data, refId, append) { console.log(data, refId, append)
 
 		_Logger.log(_LogType.MODEL, "StructrModel.create", data);
 
@@ -82,6 +82,10 @@ var StructrModel = {
 		if (data.isPage) {
 
 			obj = new StructrPage(data);
+
+		} else if (data.isSite) {
+
+			obj = new StructrSite(data);
 
 		} else if (data.isWidget) {
 
@@ -772,6 +776,30 @@ StructrPage.prototype.append = function() {
 };
 
 StructrPage.prototype.remove = function() {
+	if (Structr.isModuleActive(_Pages)) {
+		_Pages.removePage(this);
+	}
+};
+
+/**************************************
+ * Structr Site
+ **************************************/
+
+function StructrSite(data) {
+	StructrModel.copyDataToObject(data, this);
+}
+
+StructrSite.prototype.setProperty = function(key, value, recursive, callback) {
+	Command.setProperty(this.id, key, value, recursive, callback);
+};
+
+StructrSite.prototype.append = function() {
+	if (Structr.isModuleActive(_Pages)) {
+		StructrModel.expand(_Pages.appendSiteElement(this), this);
+	}
+};
+
+StructrSite.prototype.remove = function() {
 	if (Structr.isModuleActive(_Pages)) {
 		_Pages.removePage(this);
 	}

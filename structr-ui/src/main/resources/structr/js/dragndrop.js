@@ -185,13 +185,15 @@ var _Dragndrop = {
 			},
 			update: function(event, ui) {
 				var el = $(ui.item);
-				if (!sorting)
+				if (!sorting) {
 					return false;
-
+				}
+				
 				var id = Structr.getId(el);
-				if (!id)
+				if (!id) {
 					id = Structr.getComponentId(el);
-
+				}
+				
 				var nextNode = el.next('.node');
 				var refId = Structr.getId(nextNode);
 				if (!refId) {
@@ -276,6 +278,13 @@ var _Dragndrop = {
 
 		if (source && (source.isContentItem || source.isContentContainer)) {
 			return _Dragndrop.contentItemDropped(source, target);
+		}
+		
+		if (source && source.isPage && target && target.isPage && source.id && target.id) {
+			_Logger.log(_LogType.DND, 'appendChild', source, target);
+			Command.appendChild(source.id, target.id);
+
+			return true;
 		}
 
 		if (!source && tag) {

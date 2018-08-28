@@ -19,6 +19,7 @@
 package org.structr.websocket.command;
 
 import java.util.*;
+import org.apache.commons.collections.IteratorUtils;
 import org.structr.api.graph.Direction;
 import org.structr.common.PropertyView;
 import org.structr.core.GraphObject;
@@ -59,10 +60,45 @@ public class ChildrenCommand extends AbstractCommand {
 			return;
 		}
 
-		final Iterable<RelationshipInterface> rels = new IterableAdapter<>(node.getNode().getRelationships(Direction.OUTGOING, RelType.CONTAINS), factory);
+		final Iterator<RelationshipInterface> rels = new IterableAdapter<>(node.getNode().getRelationships(Direction.OUTGOING, RelType.CONTAINS), factory).iterator();
+
+		final List<RelationshipInterface> childRels = IteratorUtils.toList(rels);
+		
+		// sort relationships by position
+		Collections.sort(childRels, new Comparator<RelationshipInterface>() {
+
+			@Override
+			public int compare(RelationshipInterface o1, RelationshipInterface o2) {
+
+				try {
+					if (!o1.getRelationship().hasProperty("position")) {
+						return -1;
+					}
+
+					if (!o2.getRelationship().hasProperty("position")) {
+						return 1;
+					}
+
+					Integer pos1 = o1.getProperty("position");
+					Integer pos2 = o2.getProperty("position");
+
+					if (pos1 != null && pos2 != null) {
+
+						return pos1.compareTo(pos2);
+					}
+
+					return 0;
+				
+				} catch (final IllegalArgumentException iae) {
+					return -1;
+				}
+
+			}
+		});
+
 		final List<GraphObject> result             = new LinkedList();
 
-		for (RelationshipInterface rel : rels) {
+		for (RelationshipInterface rel : childRels) {
 
 			NodeInterface endNode = rel.getTargetNode();
 			if (endNode == null) {
@@ -72,7 +108,7 @@ public class ChildrenCommand extends AbstractCommand {
 
 			result.add(endNode);
 		}
-
+		
 		webSocketData.setView(PropertyView.Ui);
 		webSocketData.setResult(result);
 

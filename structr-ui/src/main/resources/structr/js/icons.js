@@ -40,6 +40,7 @@ var _Icons = {
 	view_detail_icon: 'icon/application_view_detail.png',
 	calendar_icon: 'icon/calendar.png',
 	add_grey_icon: 'icon/add_grey.png',
+	site_icon: 'icon/sitemap.png',
 	page_icon: 'icon/page.png',
 	page_white_icon: 'icon/page_white.png',
 	button_icon: 'icon/button.png',
@@ -147,6 +148,7 @@ var _Icons = {
 			case _Icons.view_detail_icon:             return 'sprite-application_view_detail';
 			case _Icons.calendar_icon:                return 'sprite-calendar';
 			case _Icons.add_grey_icon:                return 'sprite-add_grey';
+			case _Icons.site_icon:                    return 'sprite-sitemap';
 			case _Icons.page_icon:                    return 'sprite-page';
 			case _Icons.page_white_icon:              return 'sprite-page_white';
 			case _Icons.button_icon:                  return 'sprite-button';
