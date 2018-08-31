@@ -137,12 +137,12 @@ var _Schema = {
 	typeHintOptions: '<select class="type-hint">'
 		+ '<optgroup label="Type Hint">'
 		+ '<option value="null">-</option>'
-		+ '<option>Boolean</option>'
-		+ '<option>String</option>'
-		+ '<option>Int</option>'
-		+ '<option>Long</option>'
-		+ '<option>Double</option>'
-		+ '<option>Date</option>'
+		+ '<option value="boolean">Boolean</option>'
+		+ '<option value="string">String</option>'
+		+ '<option value="int">Int</option>'
+		+ '<option value="long">Long</option>'
+		+ '<option value="double">Double</option>'
+		+ '<option value="date">Date</option>'
 		+ '</optgroup>'
 		+ '</select>',
 	currentNodeDialogId:null,
@@ -1837,22 +1837,10 @@ var _Schema = {
 							200: function(data) {
 
 								var property = data.result;
-								var name     = property.name;
 
-								blinkGreen(tr);
+								_Schema.replaceLocalProperty(tr, property);
 
 								_Schema.reload();
-
-								_Schema.unbindEvents(name);
-
-								tr.removeClass(rowClass).addClass('local').addClass(name);
-
-								$('.create-property', tr).remove();
-								$('.remove-property', tr)
-										.removeClass(_Icons.getSpriteClassOnly(_Icons.cross_icon)).addClass(_Icons.getSpriteClassOnly(_Icons.delete_icon))
-										.off('click').on('click', function() {
-									_Schema.confirmRemoveSchemaEntity(property, 'Delete property', function() { _Schema.openEditDialog(property.schemaNode.id, 'local'); }, 'Property values will not be removed from data nodes.');
-								});
 
 								var $el = $("#tabView-views.propTabContent");
 								$el.empty();
@@ -1951,8 +1939,23 @@ var _Schema = {
 	},
 	appendLocalProperty: function(el, property) {
 
+		_Schema.buildLocalProperty(el, property, function (element, html) {
+			element.append(html);
+		});
+	},
+	replaceLocalProperty: function(el, property) {
+
+		_Schema.buildLocalProperty(el, property, function (element, html) {
+			var newEl = $(html);
+			element.replaceWith(newEl);
+			blinkGreen(newEl);
+		});
+	},
+	buildLocalProperty: function(el, property, action) {
+
 		Structr.fetchHtmlTemplate('schema/property.local', {property: property}, function(html) {
-			el.append(html);
+
+			action(el, html);
 
 			_Schema.bindEvents(property);
 
@@ -1960,7 +1963,6 @@ var _Schema = {
 				_Schema.disable(property);
 			}
 		});
-
 	},
 	appendBuiltinProperty: function(el, property) {
 
@@ -2085,8 +2087,6 @@ var _Schema = {
 		} else {
 			$('.' + key + ' .remove-property', el).hide();
 		}
-
-
 	},
 	unbindEvents: function(key) {
 

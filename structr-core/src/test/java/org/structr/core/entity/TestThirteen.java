@@ -16,20 +16,26 @@
  * You should have received a copy of the GNU General Public License
  * along with Structr.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.structr.core.auth.exception;
+package org.structr.core.entity;
 
-public class TwoFactorAuthenticationNextStepException extends UnauthorizedException {
+import org.structr.common.ValidationHelper;
+import org.structr.common.error.ErrorBuffer;
+import org.structr.core.property.Property;
+import org.structr.core.property.StringProperty;
 
-	private String nextStepToken = null;
+/**
+ */
+public class TestThirteen extends AbstractNode {
 
-	public TwoFactorAuthenticationNextStepException(final String token) {
-		super("Two factor authentication - login via OTC required");
+	public static final Property<String>        notNull            = new StringProperty("notNull").indexed().indexedWhenEmpty().notNull();
+	
+	@Override
+	public boolean isValid(final ErrorBuffer buf) {
 
-		this.nextStepToken = token;
+		boolean valid = super.isValid(buf);
+
+		valid &= ValidationHelper.isValidPropertyNotNull(this, notNull, buf);
+
+		return valid;
 	}
-
-	public String getNextStepToken() {
-		return nextStepToken;
-	}
-
 }
