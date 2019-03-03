@@ -307,9 +307,7 @@ img.disabled {
 #files,
 #code,
 #trees,
-#groups,
 #images,
-#users,
 .slideOutLeft,
 .slideOutRight {
 	float: left;
@@ -2745,28 +2743,29 @@ table.push {
 }
 
 /**
- * Resource Access editor
+ * Security
  */
 
 #usersAndGroups, #resourceAccess {
-	height: calc(100% + 6px);
+	width: 100%;
 }
 
 #usersAndGroups #users, #usersAndGroups #groups {
-	padding: 12px;
 	overflow-y: auto;
-	height: calc(100% - 2em);
+	display: inline-block;
+	vertical-align: top;
+	width: 50%;
 }
 
 #resourceAccess #resourceAccesses {
-	padding: 1em;
-	height: calc(100% - 2em);
+	/*padding: 1em;*/
+	/*height: calc(100% - 2em);*/
 }
 
 #resourceAccessesTable {
-	display: block;
+	/*display: block;*/
 	overflow: auto;
-	height: calc(100% - 5em);
+	/*height: calc(100% - 5em);*/
 	border-collapse: collapse;
 	background: #fff;
 	margin: 6px 0;
@@ -2813,16 +2812,7 @@ table.push {
 	background: #f0f0f0;
 	color: #333;
 	vertical-align: top;
-	min-width: 60px;
-}
-
-#securityTabs {
-	margin: 12px 24px 12px 12px;
-	width: calc(100vw - 36px);
-	min-width: calc(804px + 4em);
-	height: calc(100vh - 120px);
-	border: none;
-	background: none;
+	min-width: 42px;
 }
 
 #configTabs {
@@ -3363,7 +3353,7 @@ td#cascading-options, td#propagation-options {
 .tree-container .searchBox {
 	position: relative;
 	line-height: 1em;
-	padding: 12px;
+	padding: 12px 10px;
 }
 
 .tree-container .searchBoxDialog {
@@ -3371,8 +3361,8 @@ td#cascading-options, td#propagation-options {
 }
 
 .tree-container .searchBox input.search {
-	border: none;
-	width: calc(100% - 8px);
+	/*border: none;*/
+	width: calc(100% - 10px);
 	height: 22px;
 	padding: 1px 4px;
 }
@@ -3412,11 +3402,11 @@ td#cascading-options, td#propagation-options {
 }
 
 .tree {
-	padding-top: 8px;
+	/*padding-top: 8px;*/
 	overflow: hidden;
 	vertical-align: top;
 	background-color: #f1f1f1;
-	height: calc(100vh - 116px);
+	height: calc(100vh - 110px);
 	/*border: 1px solid rgba(0,0,0,.125);*/
 	/*box-shadow: 0px 0px 36px rgba(127,127,127,.1);*/
 }
@@ -3484,12 +3474,45 @@ input.tree-search-input:focus {
 	color: #000088;
 }
 
+.tree-tabs-menu {
+	margin: 0;
+	padding: 0;
+	position: relative;
+}
+
+.tree-tabs-menu li {
+	font-size: 1.25em;
+	list-style-type: none;
+	padding: 2px 0 2px 12px;
+	line-height: 3em;
+	width: 100%;
+	background-color: transparent;
+	color: #555;
+	cursor: pointer;
+	position: relative;
+	z-index: 1;
+}
+
+.tree-tabs-menu li a {
+	color: #555;
+}
+
+.tree-tabs-menu li a:hover {
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.tree-tabs-menu li.active, .tree-tabs-menu li.active a {
+	background-color: #fff;
+	color: #000;
+}
+
 .tree-contents-container, .tree-context-container {
 	width: 100%;
 	background-color: #fff;
 	display: table-cell;
 	vertical-align: top;
-	padding: 12px 12px 12px 8px;
+	padding: 12px;
 	box-shadow: 0px 0px 36px rgba(127,127,127,.1);
 	white-space: nowrap;
 	overflow: hidden;
@@ -3555,6 +3578,7 @@ input.tree-search-input:focus {
 	overflow: auto;
 	font-size: 9pt;
 	position: absolute;
+	height: calc(100vh - 72px);
 }
 
 .tree-contents {
@@ -3567,8 +3591,7 @@ input.tree-search-input:focus {
 }
 
 .tree-contents-with-top-buttons {
-	margin-top: 8px;
-	height: calc(100vh - 104px);
+	height: calc(100vh - 96px);
 }
 
 #code-context .code-favorite {

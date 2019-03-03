@@ -22,7 +22,10 @@ $(document).ready(function() {
 	Structr.classes.push('group');
 	Structr.classes.push('resourceAccess');
 });
+var securityResizerLeftKey = 'securityResizerLeftKey_' + port;
+var activeSecurityTabPrefix = 'activeSecurityTabPrefix' + port;
 
+var securityMain;
 var _Security = {
 	_moduleName: 'security',
 	groups: undefined,
@@ -42,6 +45,33 @@ var _Security = {
 		Structr.fetchHtmlTemplate('security/main', {}, function (html) {
 
 			main.append(html);
+			
+			securityMain = $('#security-main');
+
+			$('.tree-container').prepend('<div class="searchBox"><input class="search" name="search" placeholder="Search..."><i class="clearSearchIcon ' + _Icons.getFullSpriteClass(_Icons.grey_cross_icon) + '" /></div>');
+			searchField = $('.search', fileTree);
+
+			if (searchField && searchField.length > 0) {
+
+				searchField.focus();
+
+				searchField.keyup(function(e) {
+
+					var searchString = $(this).val();
+					if (searchString && searchString.length && e.keyCode === 13) {
+
+						$('.clearSearchIcon').show().on('click', function() {
+							_Files.clearSearch();
+						});
+
+						_Files.fulltextSearch(searchString);
+
+					} else if (e.keyCode === 27 || searchString === '') {
+						_Files.clearSearch();
+					}
+
+				});
+			}
 
 			_Security.groups = $('#groups');
 			_Security.users = $('#users');
@@ -50,18 +80,28 @@ var _Security = {
 			var activeTab = LSWrapper.getItem(_Security.securityTabKey) || 'usersAndGroups';
 			_Security.selectTab(activeTab);
 
-			$('#securityTabsMenu > li > a').on('click', function() {
-				activeTab = $(this).attr('id').slice(0, -1);
+			$('.tree-tabs-menu > li').on('click', function() {
+				activeTab = $('a', this).attr('id').slice(0, -1);
 				_Security.selectTab(activeTab);
 			});
+
+			_Security.moveResizer();
+			Structr.initVerticalSlider($('.column-resizer', securityMain), securityResizerLeftKey, 204, _Security.moveResizer);
 
 			Structr.unblockMenu(100);
 		});
 	},
+	moveResizer: function(left) {
+		left = left || LSWrapper.getItem(securityResizerLeftKey) || 100;
+		$('.column-resizer', contentsMain).css({ left: left + 'px' });
+
+		$('.tree').css({width: left + 'px'});
+		$('.tree-contents').css({left: left + 8 + 'px', width: $(window).width() - left - 18 + 'px'});
+	},	
 	selectTab: function(tab) {
 
 		LSWrapper.setItem(_Security.securityTabKey, tab);
-		$('#securityTabsMenu > li').removeClass('active');
+		$('.tree-tabs-menu > li').removeClass('active');
 		$('#' + tab + '_').parent().addClass('active');
 		if (tab === 'usersAndGroups') {
 			$('#usersAndGroups').show();
@@ -383,7 +423,7 @@ var _ResourceAccessGrants = {
 
 			_Security.resourceAccesses.append(html);
 
-			var raPager = _Pager.addPager('resource-access', $('#resourceAccessesPager', _Security.resourceAccesses), true, 'ResourceAccess', 'public');
+			var raPager = _Pager.addPager('resource-access', $('#resourceAccess'), true, 'ResourceAccess', 'public');
 
 			raPager.cleanupFunction = function () {
 				$('#resourceAccesses table tbody tr').remove();
