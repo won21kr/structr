@@ -115,7 +115,7 @@ input[type="checkbox"] {
 #header .structr-instance-info {
 	float: right;
 	color: #fff;
-	margin-right: 12px;
+	margin-right: 8px;
 }
 
 #header .structr-instance {
@@ -140,7 +140,7 @@ input[type="checkbox"] {
 	font-size: 8.5px;
 	text-align: right;
 	line-height: 1em;
-	margin-top: 1em;
+	margin-top: 6px;
 }
 
 #header .structr-version:empty:before {
@@ -164,6 +164,10 @@ input[type="checkbox"] {
 
 #header .structr-version .edition-icon {
 	margin-left: 5px;
+}
+
+#main {
+	overflow: hidden;
 }
 
 #main-help {
@@ -3351,6 +3355,36 @@ td#cascading-options, td#propagation-options {
 	padding-right: 4pt;
 }
 
+
+/*
+* Search
+*/
+
+.tree-container .searchBox {
+	position: relative;
+	line-height: 1em;
+	padding: 12px;
+}
+
+.tree-container .searchBoxDialog {
+	 top: 1px;
+}
+
+.tree-container .searchBox input.search {
+	border: none;
+	width: calc(100% - 8px);
+	height: 22px;
+	padding: 1px 4px;
+}
+
+.tree-container i.clearSearchIcon {
+    display: none;
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    cursor: pointer;
+}
+
 /*
  * Filesystem-like pages (Filesystem, Contents, Crawer)
  */
@@ -3365,6 +3399,7 @@ td#cascading-options, td#propagation-options {
 
 .tree-main {
 	display: table-row;
+	overflow: hidden;
 }
 
 .tree-main b.name_, .tree-main input.new-name {
@@ -3378,17 +3413,19 @@ td#cascading-options, td#propagation-options {
 
 .tree {
 	padding-top: 8px;
-	overflow: auto;
+	overflow: hidden;
 	vertical-align: top;
-	background-color: #fff;
-	border: 1px solid rgba(0,0,0,.125);
-	box-shadow: 0px 0px 36px rgba(127,127,127,.1);
+	background-color: #f1f1f1;
+	height: calc(100vh - 116px);
+	/*border: 1px solid rgba(0,0,0,.125);*/
+	/*box-shadow: 0px 0px 36px rgba(127,127,127,.1);*/
 }
 
 .tree-container {
 	display: table-cell;
 	vertical-align: top;
-	padding: 12px 0 12px 12px;
+	/*padding: 12px 0 12px 12px;*/
+	/*position: relative;*/
 }
 
 .tree-search-container {
@@ -3448,9 +3485,14 @@ input.tree-search-input:focus {
 }
 
 .tree-contents-container, .tree-context-container {
+	width: 100%;
+	background-color: #fff;
 	display: table-cell;
 	vertical-align: top;
 	padding: 12px 12px 12px 8px;
+	box-shadow: 0px 0px 36px rgba(127,127,127,.1);
+	white-space: nowrap;
+	overflow: hidden;
 }
 
 .tree-contents-container select, #crawler-list-container select, #schema-container select, #flows-canvas-container select {
@@ -3506,9 +3548,9 @@ input.tree-search-input:focus {
 .tree-contents, .tree-context {
 	vertical-align: top;
 	background-color: #fff;
-	box-shadow: 0px 0px 36px rgba(127,127,127,.1);
-	border: 1px solid rgba(0,0,0,.125);
-	padding: 12px;
+	/*box-shadow: 0px 0px 36px rgba(127,127,127,.1);*/
+	/*border: 1px solid rgba(0,0,0,.125);*/
+	/*padding: 12px;*/
 	margin-top: 0;
 	overflow: auto;
 	font-size: 9pt;
@@ -3519,8 +3561,14 @@ input.tree-search-input:focus {
 	overflow: hidden;
 }
 
+.tree-contents .pager {
+	position: absolute;
+	bottom: 6px;
+}
+
 .tree-contents-with-top-buttons {
 	margin-top: 8px;
+	height: calc(100vh - 104px);
 }
 
 #code-context .code-favorite {
@@ -3965,7 +4013,7 @@ i.fa.ps {
 }
 
 #search-results table.props th._type {
-	width: 120px;
+	width: 20%;
 }
 
 .search-result {
@@ -4532,21 +4580,22 @@ input#element-class {
 .column-resizer {
 	z-index: 2;
 	width: 6px;
-	height: calc(100vh - 90px);
+	height: calc(100vh - 62px);
 	background-color: transparent;
 	position: absolute;
-	top: 70px;
+	top: 60px;
 	left: 300px;
 	cursor: ew-resize;
 	border: 1px solid transparent;
+
 }
 .column-resizer-right {
 	z-index: 2;
 	width: 6px;
-	height: calc(100vh - 90px);
+	height: calc(100vh - 62px);
 	background-color: transparent;
 	position: absolute;
-	top: 70px;
+	top: 60px;
 	left: 222px;
 	cursor: ew-resize;
 	border: 1px solid transparent;

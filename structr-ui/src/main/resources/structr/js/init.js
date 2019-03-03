@@ -700,7 +700,7 @@ var Structr = {
 		}
 
 		$('.fit-to-height').css({
-			height: h - 84 + 'px'
+			//height: h - 84 + 'px'
 		});
 
 	},

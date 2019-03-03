@@ -466,16 +466,16 @@ table.props td.__value {
 * Search
 */
 
-.searchBox {
-	 position: absolute;
-	 right: 12px;
-	 top: 14px;
-	 z-index: 5;
-	 line-height: 1em;
+#main > .searchBox {
+	position: absolute;
+	right: 12px;
+	top: 14px;
+	z-index: 5;
+	line-height: 1em;
 }
 
 .searchBoxDialog {
-	 top: 1px;
+	top: 1px;
 }
 
 .searchBox input.search {

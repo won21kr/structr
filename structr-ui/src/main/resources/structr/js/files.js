@@ -56,56 +56,16 @@ var _Files = {
 
 		main = $('#main');
 
-		main.append('<div class="searchBox module-dependend" data-structr-module="text-search"><input class="search" name="search" placeholder="Search..."><i class="clearSearchIcon ' + _Icons.getFullSpriteClass(_Icons.grey_cross_icon) + '" /></div>');
-
-		searchField = $('.search', main);
-
-		if (searchField && searchField.length > 0) {
-
-			searchField.focus();
-
-			searchField.keyup(function(e) {
-
-				var searchString = $(this).val();
-				if (searchString && searchString.length && e.keyCode === 13) {
-
-					$('.clearSearchIcon').show().on('click', function() {
-						_Files.clearSearch();
-					});
-
-					_Files.fulltextSearch(searchString);
-
-				} else if (e.keyCode === 27 || searchString === '') {
-					_Files.clearSearch();
-				}
-
-			});
-		}
-
 		Structr.makePagesMenuDroppable();
 		Structr.adaptUiToAvailableFeatures();
 
 	},
 	resize: function() {
-
-		var windowHeight = $(window).height();
-		var headerOffsetHeight = 100;
-
-		if (fileTree) {
-			fileTree.css({
-				height: windowHeight - headerOffsetHeight + 5 + 'px'
-			});
-		}
-
-		if (folderContents) {
-			folderContents.css({
-				height: windowHeight - headerOffsetHeight - 43 + 'px'
-			});
-		}
-
 		_Files.moveResizer();
 		Structr.resize();
-
+		_Files.resizeFiles();
+	},
+	resizeFiles: function() {
 		var nameColumnWidth;
 		if (_Files.isViewModeActive('list')) {
 
@@ -145,14 +105,14 @@ var _Files = {
 		}
 
 		$('div.xml-mapping').css({ height: dialogBox.height()- 118 });
-
 	},
 	moveResizer: function(left) {
-		left = left || LSWrapper.getItem(filesResizerLeftKey) || 300;
-		$('.column-resizer', filesMain).css({ left: left });
+		left = left || LSWrapper.getItem(filesResizerLeftKey) || 100;
+		$('.column-resizer', contentsMain).css({ left: left + 'px' });
 
-		$('#file-tree').css({width: left - 14 + 'px'});
-		$('#folder-contents').css({left: left + 8 + 'px', width: $(window).width() - left - 47 + 'px'});
+		$('#file-tree').css({width: left + 'px'});
+		$('#folder-contents').css({left: left + 8 + 'px', width: $(window).width() - left - 18 + 'px'});
+		_Files.resizeFiles();
 	},
 	onload: function() {
 
@@ -162,6 +122,31 @@ var _Files = {
 
 		main.append('<div class="tree-main" id="files-main"><div class="column-resizer"></div><div class="fit-to-height tree-container" id="file-tree-container"><div class="tree" id="file-tree"></div></div><div class="fit-to-height tree-contents-container" id="folder-contents-container"><div class="tree-contents tree-contents-with-top-buttons" id="folder-contents"></div></div>');
 		filesMain = $('#files-main');
+
+		$('.tree-container').prepend('<div class="searchBox module-dependend" data-structr-module="text-search"><input class="search" name="search" placeholder="Search..."><i class="clearSearchIcon ' + _Icons.getFullSpriteClass(_Icons.grey_cross_icon) + '" /></div>');
+		searchField = $('.search', fileTree);
+
+		if (searchField && searchField.length > 0) {
+
+			searchField.focus();
+
+			searchField.keyup(function(e) {
+
+				var searchString = $(this).val();
+				if (searchString && searchString.length && e.keyCode === 13) {
+
+					$('.clearSearchIcon').show().on('click', function() {
+						_Files.clearSearch();
+					});
+
+					_Files.fulltextSearch(searchString);
+
+				} else if (e.keyCode === 27 || searchString === '') {
+					_Files.clearSearch();
+				}
+
+			});
+		}
 
 		fileTree = $('#file-tree');
 		folderContents = $('#folder-contents');
@@ -216,6 +201,7 @@ var _Files = {
 		$.jstree.defaults.dnd.large_drop_target = true;
 
 		fileTree.on('ready.jstree', function() {
+						
 			_TreeHelper.makeTreeElementDroppable(fileTree, 'root');
 			_TreeHelper.makeTreeElementDroppable(fileTree, 'favorites');
 

@@ -68,13 +68,13 @@ var _Contents = {
 
 		if (contentTree) {
 			contentTree.css({
-				height: windowHeight - headerOffsetHeight + 5 + 'px'
+				height: windowHeight - headerOffsetHeight + 32 + 'px'
 			});
 		}
 
 		if (contentsContents) {
 			contentsContents.css({
-				height: windowHeight - headerOffsetHeight - 43 + 'px'
+				height: windowHeight - headerOffsetHeight - 16 + 'px'
 			});
 		}
 
@@ -84,10 +84,10 @@ var _Contents = {
 	},
 	moveResizer: function(left) {
 		left = left || LSWrapper.getItem(contentsResizerLeftKey) || 300;
-		$('.column-resizer', contentsMain).css({ left: left });
+		$('.column-resizer', contentsMain).css({ left: left + 'px' });
 
-		$('#contents-tree').css({width: left - 14 + 'px'});
-		$('#contents-contents').css({left: left + 8 + 'px', width: $(window).width() - left - 47 + 'px'});
+		$('#contents-tree').css({width: left + 'px'});
+		$('#contents-contents').css({left: left + 8 + 'px', width: $(window).width() - left - 37 + 'px'});
 	},
 	onload: function() {
 
