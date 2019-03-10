@@ -145,10 +145,16 @@ var Pager = function (id, el, rootOnly, type, view, callback) {
 
 		_Pager.restorePagerData(this.id);
 
-		this.el.append('<div class="pager pager' + this.id + '" style="clear: both"><button class="pageLeft">&lt; Prev</button>'
-				+ ' <input class="pageNo" type="text" size="2" value="' + page[this.id] + '"><button class="pageRight">Next &gt;</button>'
-				+ ' of <input class="readonly pageCount" type="text" readonly="readonly" size="2">'
-				+ ' Items: <input class="pageSize" type="text" size="2" value="' + pageSize[this.id] + '"></div>');
+		this.el.append('<div class="pager pager' + this.id + '" style="clear: both"><i class="pageLeft fa fa-angle-left"></i>'
+				+ ' <input class="pageNo" type="text" size="4" value="' + page[this.id] + '"><i class="pageRight fa fa-angle-right"></i>'
+				+ ' of <input class="readonly pageCount" type="text" size="4">'
+				+ ' Items: <select class="pageSize">'
+				+ '<option' + (pageSize[this.id] === 5 ? ' selected' : '') + '>5</option>'
+				+ '<option' + (pageSize[this.id] === 10 ? ' selected' : '') + '>10</option>'
+				+ '<option' + (pageSize[this.id] === 25 ? ' selected' : '') + '>25</option>'
+				+ '<option' + (pageSize[this.id] === 50 ? ' selected' : '') + '>50</option>'
+				+ '<option' + (pageSize[this.id] === 100 ? ' selected' : '') + '>100</option>'
+				+ '</select></div>');
 
 		this.pager = $('.pager' + this.id, this.el);
 
@@ -158,17 +164,25 @@ var Pager = function (id, el, rootOnly, type, view, callback) {
 		this.pageSize  = $('.pageSize', this.pager);
 		this.pageCount = $('.pageCount', this.pager);
 
-		this.pageSize.on('keypress', function(e) {
-			if (e.keyCode === 13) {
-				pageSize[pagerObj.id] = $(this).val();
-				page[pagerObj.id] = 1;
-				pagerObj.updatePagerElements();
-				pagerObj.transportFunction();
-			}
+		this.pageSize.on('change', function(e) {
+			pageSize[pagerObj.id] = $(this).val();
+			page[pagerObj.id] = 1;
+			pagerObj.updatePagerElements();
+			pagerObj.transportFunction();
+		});
+
+		this.pageNo.on('click', function(e) {
+			if (e.target.classList.contains('disabled')) return;
+			e.target.select();
 		});
 
 		this.pageNo.on('keypress', function(e) {
 			if (e.keyCode === 13) {
+				let val = $(this).val();
+				if (val < 1 || val > page[pagerObj.id]) {
+					$(this).val(page[pagerObj.id]);
+					return;
+				}
 				page[pagerObj.id] = $(this).val();
 				pagerObj.updatePagerElements();
 				pagerObj.transportFunction();
@@ -176,12 +190,14 @@ var Pager = function (id, el, rootOnly, type, view, callback) {
 		});
 
 		this.pageLeft.on('click', function(e) {
+			if (e.target.classList.contains('disabled')) return;
 			page[pagerObj.id]--;
 			pagerObj.updatePagerElements();
 			pagerObj.transportFunction();
 		});
 
-		this.pageRight.on('click', function() {
+		this.pageRight.on('click', function(e) {
+			if (e.target.classList.contains('disabled')) return;
 			page[pagerObj.id]++;
 			pagerObj.updatePagerElements();
 			pagerObj.transportFunction();

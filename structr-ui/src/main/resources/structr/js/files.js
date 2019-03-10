@@ -596,7 +596,7 @@ var _Files = {
 
 			path += ' <i class="fa fa-caret-right"></i> ' + pathNames.pop();
 
-			folderContents.append('<h2>' + path + '</h2>');
+			folderContents.append('<h2 class="breadcrumbs">' + path + '</h2>');
 
 			$('.breadcrumb-entry').click(function (e) {
 				e.preventDefault();

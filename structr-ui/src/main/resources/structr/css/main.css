@@ -1769,16 +1769,46 @@ button.enabled, button.active {
 	padding: 3px 0 0 7px;
 }
 
-.pager input[type=text] {
-	width: 14px;
-	margin-right: 4px;
-	padding-bottom: 3px;
+.pager {
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	
 }
 
-.pager input.page, .pager input.pageNo, .pager input.pageSize, .pager input.pageCount {
-	/*margin-top: -1px;*/
+.pager input {
 	height: 17px;
+}
+
+.pager input[type=text] {
+	width: 24px;
+	margin-right: 4px;
+	padding-bottom: 3px;
+	text-align: center;
+}
+
+.pager input.page, .pager input.pageNo, .pager select.pageSize, .pager input.pageCount {
+	/*margin-top: -1px;*/
 	background-color: #fff;
+}
+
+.pager input.pageNo {
+	background-color: #fff ! important;
+}
+
+.pager input.pageNo.disabled {
+	border: 1px solid transparent;
+}
+
+.pager input.pageCount {
+	background-color: #fff ! important;
+	border: none;
+}
+
+.pager select.pageSize {
+	margin-right: 16px;
 }
 
 .pager button {
@@ -1787,9 +1817,16 @@ button.enabled, button.active {
 	background-color: #e5e5e5;
 }
 
+.pager i {
+	font-size: 8pt;
+	padding: 2px 4px;
+	cursor: pointer;
+}
+
 .pager input.filter[type="text"][data-attribute="name"], .pager input.filter[type="text"][data-attribute="category"] {
 	width: 52px;
 	font-size: 1.1em;
+	text-align: left;
 }
 
 .pager > div {
@@ -1797,11 +1834,12 @@ button.enabled, button.active {
 	white-space: nowrap;
 }
 
-button.disabled {
+button.disabled, i.disabled {
 	filter: alpha(opacity=60);
 	-khtml-opacity: 0.6;
 	-moz-opacity: 0.6;
 	opacity: 0.6;
+	cursor: not-allowed;
 }
 
 .input-and-button, .select-and-button {
@@ -3586,8 +3624,12 @@ input.tree-search-input:focus {
 }
 
 .tree-contents .pager {
+	width: 100%;
 	position: absolute;
-	bottom: 6px;
+	z-index: 1;
+	bottom: 0;
+	padding: 8px 0;
+	background-color: #fff;
 }
 
 .tree-contents-with-top-buttons {
@@ -3890,8 +3932,29 @@ table.dataTable thead th, table.dataTable thead td {
 	margin-bottom: 8px;
 }
 
+#files-table thead tr {
+	display: block;
+	width: 100%;
+}
+
+#files-table thead tr th {
+	width: 100%;
+}
+
+#files-table tbody tr td {
+	width: 100%;
+}
+
+#files-table tr {
+	width: 100%;
+}
+
 #files-table tbody {
+	width: 100%;
+	height: calc(100vh - 226px);
+	display: block;
 	border-top: 1px solid #ccc !important;
+	overflow: auto;
 }
 
 #files-table tr:nth-child(even) {
@@ -4083,6 +4146,10 @@ i.fa.ps {
 
 .breadcrumb-entry {
 	cursor: pointer;
+}
+
+.breadcrumbs i {
+	margin: 4px;
 }
 
 .class-id-attrs {
