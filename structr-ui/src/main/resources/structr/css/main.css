@@ -2789,6 +2789,10 @@ table.push {
  * Security
  */
 
+#security-tree {
+	overflow-x: hidden;
+}
+
 #usersAndGroups, #resourceAccess {
 	width: 100%;
 }
@@ -3446,7 +3450,7 @@ td#cascading-options, td#propagation-options {
 
 .tree {
 	/*padding-top: 8px;*/
-	overflow: hidden;
+	overflow: auto;
 	vertical-align: top;
 	background-color: #f1f1f1;
 	height: calc(100vh - 110px);
