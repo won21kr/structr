@@ -178,11 +178,6 @@ public class MailService extends Thread implements RunnableService, MailServiceI
 	}
 
 	@Override
-	public boolean runOnStartup() {
-		return true;
-	}
-
-	@Override
 	public void injectArguments(Command command) {
 		command.setArgument("mailService", this);
 	}

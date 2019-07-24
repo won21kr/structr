@@ -364,6 +364,8 @@ public class Services implements StructrServices {
 			final List<Class> configuredServiceClasses = getCongfiguredServiceClasses();
 			final List<Class> reverseServiceClassNames = new LinkedList<>(configuredServiceClasses);
 			Collections.reverse(reverseServiceClassNames);
+			
+			logger.info("Shutdown order: {}", reverseServiceClassNames);
 
 			for (final Class serviceClass : reverseServiceClassNames) {
 				shutdownService(serviceClass);
@@ -509,18 +511,11 @@ public class Services implements StructrServices {
 
 							RunnableService runnableService = (RunnableService) service;
 
-							if (runnableService.runOnStartup()) {
-
-								// start RunnableService and cache it
-								runnableService.startService();
-							}
+							runnableService.startService();
 						}
 
-						if (service.isRunning()) {
-
-							// cache service instance
-							serviceCache.put(serviceClass, service);
-						}
+						// cache service instance
+						serviceCache.put(serviceClass, service);
 
 						// initialization callback
 						service.initialized();

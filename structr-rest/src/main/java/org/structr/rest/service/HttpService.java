@@ -144,11 +144,6 @@ public class HttpService implements RunnableService {
 	}
 
 	@Override
-	public boolean runOnStartup() {
-		return true;
-	}
-
-	@Override
 	public boolean isRunning() {
 		return server != null && server.isRunning();
 	}
