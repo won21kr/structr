@@ -30,7 +30,7 @@ public interface PropertyView {
 	 * The "all" view, a system view that is created automatically when
 	 * scanning the entities upon system start.
 	 */
-	public static final String All =	"all";
+	public static final String All =	 "all";
 	
 	/**
 	 * The "public" view, this is the default view for structr entities.

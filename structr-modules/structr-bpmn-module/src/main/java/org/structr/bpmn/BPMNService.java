@@ -18,9 +18,11 @@
  */
 package org.structr.bpmn;
 
+import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
-import org.neo4j.cypher.internal.compiler.v3_1.helpers.RuntimeJavaValueConverter;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.structr.api.service.Command;
@@ -32,8 +34,7 @@ import org.structr.core.app.App;
 import org.structr.core.app.StructrApp;
 import org.structr.core.graph.Tx;
 import org.structr.schema.SchemaService;
-import org.structr.bpmn.model.BPMNProcessNode;
-import org.structr.bpmn.model.BPMNProcessStepNode;
+import org.structr.bpmn.model.BPMNProcessStep;
 
 /**
  */
@@ -108,15 +109,22 @@ public class BPMNService extends Thread implements RunnableService {
 
 		while (running) {
 
-			for (final BPMNProcessNode process : fetchActiveProcesses()) {
-				
-				process.step();
-			}
+			for (final BPMNProcessStep step : fetchActiveSteps()) {
 
-			/**
-			 * The engine, the process or the step needs to know what to do and which
-			 * of the possible next steps 
-			 */
+				try (final Tx tx = StructrApp.getInstance().tx()) {
+
+					final Map<String, Object> context = new LinkedHashMap<>();
+					final Object value                = step.execute(context);
+
+					step.finish();
+					step.next(value);
+
+					tx.success();
+
+				} catch (FrameworkException fex) {
+					fex.printStackTrace();
+				}
+			}
 
 			try { Thread.sleep(1000); } catch (Throwable t) {
 				t.printStackTrace();
@@ -125,17 +133,27 @@ public class BPMNService extends Thread implements RunnableService {
 	}
 
 	// ----- private methods -----
-	private List<BPMNProcessNode> fetchActiveProcesses() {
+	private List<BPMNProcessStep> fetchActiveSteps() {
 
-		final App app                 = StructrApp.getInstance();
-		final List<BPMNProcessNode> steps = new LinkedList<>();
+		final App app                     = StructrApp.getInstance();
+		final List<BPMNProcessStep> steps = new LinkedList<>();
 
 		try (final Tx tx = app.tx()) {
 
-			steps.addAll(app.nodeQuery(BPMNProcessNode.class).and(StructrApp.key(BPMNProcessNode.class, "active"), true).getAsList());
+			final List<BPMNProcessStep> nodes = app.nodeQuery(BPMNProcessStep.class)
+
+				.and(StructrApp.key(BPMNProcessStep.class, "isFinished"), false)
+				.and(StructrApp.key(BPMNProcessStep.class, "isPaused"), false)
+				.and()
+					.or(BPMNProcessStep.dueDate, null)
+					.orRange(BPMNProcessStep.dueDate, new Date(), null)
+
+				.getAsList();
+
+			steps.addAll(nodes);
 
 			tx.success();
-			
+
 		} catch (FrameworkException fex) {
 			fex.printStackTrace();
 		}

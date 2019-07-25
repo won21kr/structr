@@ -18,25 +18,26 @@
  */
 package org.structr.bpmn.model;
 
-import java.net.URI;
-import org.structr.core.graph.NodeInterface;
-import org.structr.schema.SchemaService;
-import org.structr.schema.json.JsonObjectType;
-import org.structr.schema.json.JsonSchema;
+import org.structr.core.entity.OneToOne;
 
 /**
+ *
  */
-public interface BPMNProcessStepNode extends NodeInterface {
 
-	class Impl { static {
+public class BPMNProcessStepNext extends OneToOne<BPMNProcessStep, BPMNProcessStep> {
 
-		final JsonSchema schema   = SchemaService.getDynamicSchema();
-		final JsonObjectType type = schema.addType("BPMNProcessStepNode");
-	
-		type.setImplements(URI.create("https://structr.org/v1.1/definitions/BPMNProcessStepNode"));
+	@Override
+	public Class<BPMNProcessStep> getSourceType() {
+		return BPMNProcessStep.class;
+	}
 
+	@Override
+	public Class<BPMNProcessStep> getTargetType() {
+		return BPMNProcessStep.class;
+	}
 
-
-
-	}}
+	@Override
+	public String name() {
+		return "NEXT_STEP";
+	}
 }
