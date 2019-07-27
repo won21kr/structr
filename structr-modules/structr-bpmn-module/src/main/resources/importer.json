@@ -1,0 +1,125 @@
+{
+  "/bpmn:definitions": {
+    "action": "createNode",
+    "properties": {},
+    "isRoot": true
+  },
+  "/bpmn:definitions/bpmn:process": {
+    "action": "createNode",
+    "propertyName": "definitions",
+    "multiplicity": "1",
+    "properties": {}
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:startEvent": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "id": "name",
+      "category": "category",
+      "$extends": "$extends"
+    },
+    "defaults": {
+      "$extends": "https://structr.org/v1.1/definitions/BPMNStart",
+      "category": ""
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:endEvent": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "id": "name",
+      "category": "category",
+      "$extends": "$extends"
+    },
+    "defaults": {
+      "$extends": "https://structr.org/v1.1/definitions/BPMNEnd",
+      "category": ""
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:exclusiveGateway": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "id": "name",
+      "category": "category",
+      "$extends": "$extends"
+    },
+    "defaults": {
+      "$extends": "https://structr.org/v1.1/definitions/BPMNCondition",
+      "category": ""
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:task": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "id": "name",
+      "category": "category",
+      "$extends": "$extends"
+    },
+    "defaults": {
+      "$extends": "https://structr.org/v1.1/definitions/BPMNAction",
+      "category": ""
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:task/bpmn:extensionElements/camunda:executionListener": {
+    "action": "createNode",
+    "propertyName": "executionListener",
+    "properties": {
+      "event": "event"
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:task/bpmn:extensionElements/camunda:executionListener/camunda:script": {
+    "action": "createNode",
+    "propertyName": "script",
+    "properties": {
+      "scriptFormat": "scriptFormat"
+    },
+    "content": "source"
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:sequenceFlow": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "id": "name",
+      "name": "rel",
+      "sourceRef": "$source",
+      "targetRef": "$target",
+      "targetName": "targetName"
+    },
+    "defaults": {
+      "rel": "next",
+      "targetName": "next"
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:task/bpmn:extensionElements/camunda:properties": {
+    "action": "createNode",
+    "propertyName": "methods",
+    "multiplicity": "1",
+    "properties": {
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:exclusiveGateway/bpmn:extensionElements/camunda:properties": {
+    "action": "createNode",
+    "propertyName": "methods",
+    "multiplicity": "1",
+    "properties": {
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:exclusiveGateway/bpmn:extensionElements/camunda:properties/camunda:property": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "action": "name",
+      "value": "source"
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:task/bpmn:extensionElements/camunda:properties/camunda:property": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "action": "name",
+      "value": "source"
+    }
+  }
+}

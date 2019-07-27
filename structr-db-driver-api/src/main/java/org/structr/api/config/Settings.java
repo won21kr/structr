@@ -192,7 +192,7 @@ public class Settings {
 	public static final Setting<Boolean> CmisEnabled             = new BooleanSetting(advancedGroup, "hidden",      "cmis.enabled",                  false);
 
 	// servlets
-	public static final StringMultiChoiceSetting Servlets     = new StringMultiChoiceSetting(servletsGroup, "General", "httpservice.servlets", "JsonRestServlet HtmlServlet WebSocketServlet CsvServlet UploadServlet ProxyServlet GraphQLServlet DeploymentServlet", Settings.getStringsAsSet("JsonRestServlet", "HtmlServlet", "WebSocketServlet", "CsvServlet", "UploadServlet", "ProxyServlet", "GraphQLServlet", "DeploymentServlet", "FlowServlet"), "Servlets that are listed in this configuration key will be available in the HttpService. Changes to this setting require a restart of the HttpService in the 'Services' tab.");
+	public static final StringMultiChoiceSetting Servlets     = new StringMultiChoiceSetting(servletsGroup, "General", "httpservice.servlets", "JsonRestServlet HtmlServlet WebSocketServlet CsvServlet UploadServlet ProxyServlet GraphQLServlet DeploymentServlet BPMNServlet", Settings.getStringsAsSet("JsonRestServlet", "HtmlServlet", "WebSocketServlet", "CsvServlet", "UploadServlet", "ProxyServlet", "GraphQLServlet", "DeploymentServlet", "FlowServlet", "BPMNServlet"), "Servlets that are listed in this configuration key will be available in the HttpService. Changes to this setting require a restart of the HttpService in the 'Services' tab.");
 
 	public static final Setting<Boolean> ConfigServletEnabled = new BooleanSetting(servletsGroup,  "ConfigServlet", "configservlet.enabled",             true, "Enables the config servlet (available under <code>http(s)://<your-server>/structr/config</code>)");
 
@@ -302,6 +302,18 @@ public class Settings {
 	public static final Setting<Boolean> ProxyAllowAnonymous   = new BooleanSetting(servletsGroup, "ProxyServlet", "proxyservlet.allowanonymousproxys", false);
 	public static final Setting<Integer> ProxyMaxFileSize      = new IntegerSetting(servletsGroup, "ProxyServlet", "proxyservlet.maxfilesize",           1000);
 	public static final Setting<Integer> ProxyMaxRequestSize   = new IntegerSetting(servletsGroup, "ProxyServlet", "proxyservlet.maxrequestsize",        1200);
+
+	public static final Setting<String> PMBNServletPath       = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.path",                  "/structr/bpmn");
+	public static final Setting<String> PMBNServletClass      = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.class",                 "org.structr.bpmn.BPMNServlet");
+	public static final Setting<String> PMBNAuthenticator     = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.authenticator",         "org.structr.web.auth.UiAuthenticator");
+	public static final Setting<String> PMBNDefaultView       = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.defaultview",           "public");
+	public static final Setting<Integer> PMBNOutputDepth      = new IntegerSetting(servletsGroup, "BPMNServlet", "bpmnservlet.outputdepth",           3);
+	public static final Setting<String> PMBNResourceProvider  = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.resourceprovider",      "org.structr.web.common.UiResourceProvider");
+	public static final Setting<Boolean> PMBNUserAutologin    = new BooleanSetting(servletsGroup, "BPMNServlet", "bpmnservlet.user.autologin",        false);
+	public static final Setting<Boolean> PMBNUserAutocreate   = new BooleanSetting(servletsGroup, "BPMNServlet", "bpmnservlet.user.autocreate",       false);
+	public static final Setting<Boolean> PMBNAllowAnonymous   = new BooleanSetting(servletsGroup, "BPMNServlet", "bpmnservlet.allowanonymousproxys", false);
+	public static final Setting<Integer> PMBNMaxFileSize      = new IntegerSetting(servletsGroup, "BPMNServlet", "bpmnservlet.maxfilesize",           1000);
+	public static final Setting<Integer> PMBNMaxRequestSize   = new IntegerSetting(servletsGroup, "BPMNServlet", "bpmnservlet.maxrequestsize",        1200);
 
 	// cron settings
 	public static final Setting<String> CronTasks              = new StringSetting(cronGroup,  "", "CronService.tasks", "", "List with cron task configurations");

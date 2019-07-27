@@ -36,10 +36,10 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 
 	public static final Property<BPMNProcessStep> nextStep     = new EndNode<>("nextStep", BPMNProcessStepNext.class);
 	public static final Property<BPMNProcessStep> previousStep = new StartNode<>("previousStep", BPMNProcessStepNext.class);
-	public static final Property<Date> dueDate                 = new ISO8601DateProperty("dueDate").indexed();
 	public static final Property<Boolean> isFinished           = new BooleanProperty("isFinished").indexed();
 	public static final Property<Boolean> isManual             = new BooleanProperty("isManual").indexed();
 	public static final Property<Boolean> isPaused             = new BooleanProperty("isPaused").indexed().hint("This flag can be used to manually pause a process.");
+	public static final Property<Date> dueDate                 = new ISO8601DateProperty("dueDate").indexed();
 
 	public abstract T execute(final Map<String, Object> context) throws FrameworkException;
 	public abstract BPMNProcessStep getNextStep(final T t) throws FrameworkException;
