@@ -29,7 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.asciidoctor.internal.IOUtils;
+import org.apache.commons.io.IOUtils;
 import org.codehaus.plexus.util.StringUtils;
 import org.structr.core.app.App;
 import org.structr.core.app.StructrApp;
@@ -42,6 +42,7 @@ import org.structr.schema.json.JsonSchema;
  */
 public class BPMNImporter implements BPMNTransform {
 
+	private boolean testing     = false;
 	private boolean changedOnly = false;
 	private String name         = null;
 	private String xml          = null;
@@ -69,6 +70,11 @@ public class BPMNImporter implements BPMNTransform {
 	public void setXml(String xml) {
 		this.xml = xml;
 	}
+
+	public void setTesting(final boolean isTesting) {
+		this.testing = isTesting;
+	}
+
 
 	public boolean isReady() {
 		return StringUtils.isNotBlank(xml);
@@ -101,22 +107,30 @@ public class BPMNImporter implements BPMNTransform {
 				data.put("id", DigestUtils.md5Hex(name));
 				data.put("methods", new LinkedList<>());
 
-				final App app                  = StructrApp.getInstance();
 				final String source            = gson.toJson(data);
-				final JsonSchema schema        = StructrSchema.createFromSource(source);
 
-				try (final Tx tx = app.tx()) {
+				if (testing) {
 
-					// delete all BPMN schema nodes that belong to this process
-					for (final SchemaNode node : app.nodeQuery(SchemaNode.class).and(SchemaNode.category, getCategory()).getResultStream()) {
+					System.out.println(source);
 
-						app.delete(node);
+				} else {
+
+					final App app           = StructrApp.getInstance();
+					final JsonSchema schema = StructrSchema.createFromSource(source);
+
+					try (final Tx tx = app.tx()) {
+
+						// delete all BPMN schema nodes that belong to this process
+						for (final SchemaNode node : app.nodeQuery(SchemaNode.class).and(SchemaNode.category, getCategory()).getResultStream()) {
+
+							app.delete(node);
+						}
+
+						// apply new schema
+						StructrSchema.extendDatabaseSchema(app, schema);
+
+						tx.success();
 					}
-
-					// apply new schema
-					StructrSchema.extendDatabaseSchema(app, schema);
-
-					tx.success();
 				}
 			}
 
@@ -151,11 +165,13 @@ public class BPMNImporter implements BPMNTransform {
 
 		final BPMNImporter importer = new BPMNImporter();
 
+		importer.setTesting(true);
+
 		importer.setName("test1.bpmn");
 
 		try (final InputStream is = new FileInputStream("/home/chrisi/camunda/test1.bpmn")) {
 
-			importer.setXml(IOUtils.readFull(is));
+			importer.setXml(IOUtils.toString(is, "utf-8"));
 
 		} catch (IOException ex) {
 			ex.printStackTrace();

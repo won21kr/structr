@@ -19,6 +19,7 @@
 package org.structr.bpmn.model;
 
 import java.util.Map;
+import org.slf4j.LoggerFactory;
 import org.structr.common.SecurityContext;
 import org.structr.common.error.FrameworkException;
 import org.structr.core.app.StructrApp;
@@ -29,9 +30,14 @@ import org.structr.core.property.PropertyKey;
  */
 
 public abstract class BPMNCondition extends BPMNProcessStep<Object> {
-	
+
 	// method must be implemented by schema type
-	public abstract Object action(final SecurityContext securityContext, final Map<String, Object> parameters) throws FrameworkException;
+	public Object action(final SecurityContext securityContext, final Map<String, Object> parameters) throws FrameworkException {
+
+		LoggerFactory.getLogger(BPMNAction.class).info("BPMNCondition {}: no action specified.", getClass().getSimpleName());
+
+		return null;
+	}
 
 	@Override
 	public Object execute(final Map<String, Object> context) throws FrameworkException {
@@ -50,20 +56,20 @@ public abstract class BPMNCondition extends BPMNProcessStep<Object> {
 
 				final Class<BPMNProcessStep> nextType = nextKey.relatedType();
 				if (nextType != null) {
-				
+
 					return StructrApp.getInstance().create(nextType);
 				}
-				
+
 			} else {
-				
+
 				// log error, condition result must have relationship counterpart
 			}
-			
+
 		} else {
-			
+
 			// log error, condition action must return something
 		}
-		
+
 		return null;
 	}
 }
