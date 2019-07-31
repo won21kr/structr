@@ -29,7 +29,6 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import javax.servlet.DispatcherType;
 import javax.servlet.http.HttpServlet;
@@ -280,7 +279,7 @@ public class HttpService implements RunnableService {
 			idManager.setWorkerName(hardwareId);
 
 			sessionCache.getSessionHandler().setSessionIdManager(idManager);
-			
+
 			if (Settings.HttpOnly.getValue()) {
 				sessionCache.getSessionHandler().setHttpOnly(isTest);
 			}
@@ -290,7 +289,7 @@ public class HttpService implements RunnableService {
 		if (Settings.ClearSessionsOnStartup.getValue()) {
 			SessionHelper.clearAllSessions();
 		}
-		
+
 		final StructrSessionDataStore sessionDataStore = new StructrSessionDataStore();
 		//final FileSessionDataStore store = new FileSessionDataStore();
 		//store.setStoreDir(baseDir.toPath().resolve("sessions").toFile());
@@ -399,7 +398,7 @@ public class HttpService implements RunnableService {
 		for (Map.Entry<String, ServletHolder> servlet : servlets.entrySet()) {
 
 			final ServletHolder servletHolder = servlet.getValue();
-			final String path = servlet.getKey();
+			final String path                 = servlet.getKey();
 
 			servletHolder.setInitOrder(position++);
 
@@ -409,7 +408,7 @@ public class HttpService implements RunnableService {
 		}
 
 		contexts.addHandler(servletContext);
-		
+
 		httpConfig = new HttpConfiguration();
 		httpConfig.setSecureScheme("https");
 		httpConfig.setSecurePort(httpsPort);
@@ -467,7 +466,7 @@ public class HttpService implements RunnableService {
 				if (Settings.ForceHttps.getValue()) {
 					sessionCache.getSessionHandler().setSecureRequestOnly(true);
 				}
-				
+
 				httpsConnector.setPort(httpsPort);
 				httpsConnector.setIdleTimeout(500000);
 
@@ -512,7 +511,7 @@ public class HttpService implements RunnableService {
 	@Override
 	public void shutdown() {
 
-		
+
 		if (server != null) {
 
 			try {

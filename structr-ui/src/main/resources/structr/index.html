@@ -98,6 +98,15 @@
 		<script src="js/refactoring-helper.js"></script>
 		<script src="js/simple-pages.js"></script>
 		<script src="js/flows.js" type="module"></script>
+
+		<!-- BEGIN BPMN TEST -->
+		<!-- necessary stylesheets -->
+		<link rel="stylesheet" href="https://unpkg.com/bpmn-js@4.0.3/dist/assets/diagram-js.css" />
+		<link rel="stylesheet" href="https://unpkg.com/bpmn-js@4.0.3/dist/assets/bpmn-font/css/bpmn.css" />
+		<script src="https://unpkg.com/bpmn-js@4.0.3/dist/bpmn-modeler.development.js"></script>
+		<script src="js/bpmn.js"></script>
+		<!-- END BPMN TEST -->
+
 	</head>
 	<body>
 		<div id="info-area" class="blockMsg"></div>
@@ -109,6 +118,7 @@
 						<i class="sprite sprite-hamburger_white"></i>
 						<ul id="submenu">
 							<li data-name="Dashboard"><a id="dashboard_" href="#dashboard" data-activate-module="dashboard">Dashboard</a></li>
+							<li data-name="BPMN"><a id="bpmn_" href="#bpmn" data-activate-module="bpmn">BPMN</a></li>
 							<li data-name="Graph"><a id="graph_" href="#graph" data-activate-module="graph">Graph</a></li>
 							<li data-name="Contents"><a id="contents_" href="#contents" data-activate-module="contents">Contents</a></li>
 							<li data-name="Simple Pages"><a id="simple-pages_" href="#simple-pages" data-activate-module="simple-pages">Simple Pages</a></li>

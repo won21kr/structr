@@ -3036,6 +3036,16 @@ input.bitmask {
 }
 
 /*
+ * BPMN
+ */
+
+#bpmn-contents {
+	height: 100%;
+	background-color: #fff;
+	display: table-cell;
+}
+
+/*
  * Graph
  */
 
