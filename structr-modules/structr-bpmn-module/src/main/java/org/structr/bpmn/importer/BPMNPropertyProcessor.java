@@ -16,37 +16,15 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Structr.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.structr.bpmn.model;
+package org.structr.bpmn.importer;
 
 import java.util.Map;
-import org.structr.common.error.FrameworkException;
-import org.structr.core.app.StructrApp;
-import org.structr.core.property.PropertyKey;
 
 /**
  *
  */
 
-public abstract class BPMNStart extends BPMNProcessStep<Object> {
+public interface BPMNPropertyProcessor {
 
-	@Override
-	public Object execute(final Map<String, Object> context) throws FrameworkException {
-		return null;
-	}
-
-	@Override
-	public BPMNProcessStep getNextStep(final Object data) throws FrameworkException {
-
-		final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), "next", false);
-		if (nextKey != null) {
-
-			final Class<BPMNProcessStep> nextType = nextKey.relatedType();
-			if (nextType != null) {
-
-				return StructrApp.getInstance().create(nextType);
-			}
-		}
-
-		return null;
-	}
+	void processProperties(final Map<String, Object> root, final BPMNPropertyReference reference);
 }

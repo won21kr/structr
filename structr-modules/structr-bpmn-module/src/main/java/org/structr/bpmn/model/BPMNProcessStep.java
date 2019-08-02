@@ -20,6 +20,8 @@ package org.structr.bpmn.model;
 
 import java.util.Date;
 import java.util.Map;
+import org.structr.common.SecurityContext;
+import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
 import org.structr.core.entity.AbstractNode;
 import org.structr.core.property.BooleanProperty;
@@ -38,7 +40,7 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 	public static final Property<BPMNProcessStep> previousStep = new StartNode<>("previousStep", BPMNProcessStepNext.class);
 	public static final Property<Boolean> isFinished           = new BooleanProperty("isFinished").indexed();
 	public static final Property<Boolean> isManual             = new BooleanProperty("isManual").indexed();
-	public static final Property<Boolean> isPaused             = new BooleanProperty("isPaused").indexed().hint("This flag can be used to manually pause a process.");
+	public static final Property<Boolean> isSuspended          = new BooleanProperty("isSuspended").indexed().hint("This flag can be used to manually suspend a process.");
 	public static final Property<Date> dueDate                 = new ISO8601DateProperty("dueDate").indexed();
 
 	public abstract T execute(final Map<String, Object> context) throws FrameworkException;
@@ -59,5 +61,25 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 
 	public void finish() throws FrameworkException {
 		setProperty(isFinished, true);
+	}
+
+	@Override
+	public void onCreation(final SecurityContext securityContext, final ErrorBuffer errorBuffer) throws FrameworkException {
+
+		if (this instanceof BPMNProcess) {
+
+			// BPMNStart can be created by anyone, do nothing
+
+		} else {
+
+			if (Boolean.TRUE.equals(securityContext.getAttribute("BPMNService"))) {
+
+				// BPMNService is allowed to create instances of intermediate steps, do nothing
+
+			} else {
+
+				throw new FrameworkException(422, "BPMN process must be started with a BPMNStart instance.");
+			}
+		}
 	}
 }

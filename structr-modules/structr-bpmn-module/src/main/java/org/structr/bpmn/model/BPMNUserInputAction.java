@@ -19,8 +19,8 @@
 package org.structr.bpmn.model;
 
 import java.util.Map;
-import org.slf4j.LoggerFactory;
 import org.structr.common.SecurityContext;
+import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
 import org.structr.core.app.StructrApp;
 import org.structr.core.property.PropertyKey;
@@ -29,19 +29,19 @@ import org.structr.core.property.PropertyKey;
  *
  */
 
-public abstract class BPMNAction extends BPMNProcessStep<Object> {
+public abstract class BPMNUserInputAction extends BPMNProcessStep<Object> {
 
-	// method must be implemented by schema type
-	public Object action(final SecurityContext securityContext, final Map<String, Object> parameters) throws FrameworkException {
+	@Override
+	public void onCreation(final SecurityContext securityContext, final ErrorBuffer errorBuffer) throws FrameworkException {
 
-		LoggerFactory.getLogger(BPMNAction.class).info("BPMNAction {}: no action specified.", getClass().getSimpleName());
-
-		return null;
+		// user actions are suspended by default since we are waiting for user interaction
+		setProperty(isSuspended, true);
 	}
+
 
 	@Override
 	public Object execute(final Map<String, Object> context) throws FrameworkException {
-		return action(securityContext, context);
+		return null;
 	}
 
 	@Override

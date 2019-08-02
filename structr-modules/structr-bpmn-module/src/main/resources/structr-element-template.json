@@ -1,0 +1,86 @@
+[
+  {
+    "name": "Structr Action",
+    "id": "org.structr.bpmn.Action",
+    "isDefault": true,
+    "appliesTo": [
+      "bpmn:Activity"
+    ],
+    "properties": [
+      {
+        "label": "Script Action",
+        "type": "Text",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "action"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Structr Condition",
+    "id": "org.structr.bpmn.Condition",
+    "isDefault": true,
+    "appliesTo": [
+      "bpmn:ExclusiveGateway"
+    ],
+    "properties": [
+      {
+        "label": "Script Action",
+        "type": "Text",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "action"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Structr Property",
+    "id": "org.structr.bpmn.Property",
+    "isDefault": true,
+    "appliesTo": [
+      "bpmn:DataObjectReference"
+    ],
+    "properties": [
+      {
+        "label": "Name",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "name"
+        }
+      },
+      {
+        "label": "Type",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "type"
+        }
+      },
+      {
+        "label": "Required",
+        "type": "Boolean",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "required"
+        }
+      },
+      {
+        "label": "Relationship Type",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "relType"
+        }
+      }
+    ]
+  }
+]

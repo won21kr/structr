@@ -28,6 +28,7 @@ import java.io.StringReader;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Map.Entry;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.codehaus.plexus.util.StringUtils;
@@ -40,7 +41,7 @@ import org.structr.schema.json.JsonSchema;
 
 /**
  */
-public class BPMNImporter implements BPMNTransform {
+public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 
 	private boolean testing     = false;
 	private boolean changedOnly = false;
@@ -97,6 +98,7 @@ public class BPMNImporter implements BPMNTransform {
 		try {
 
 			final BPMNHandler handler = new BPMNHandler(config, new StringReader(xml));
+			handler.setPostProcessHandler(this);
 			handler.setTransform(this);
 
 			if (handler.hasNext()) {
@@ -144,7 +146,7 @@ public class BPMNImporter implements BPMNTransform {
 	}
 
 	@Override
-	public String transform(final String path, final String name, final String value) {
+	public String transform(final String path, final String name, final String value, final Map<String, String> data) {
 
 		if ("sourceRef".equals(name) || "targetRef".equals(name)) {
 			return "#/definitions/" + value;
@@ -154,11 +156,132 @@ public class BPMNImporter implements BPMNTransform {
 			return getCategory();
 		}
 
+		if ("targetName".equals(name)) {
+			return data.get("rel");
+		}
+
 		return value;
 	}
 
 	private String getCategory() {
 		return "BPMN/" + this.name;
+	}
+
+	@Override
+	public void processProperties(final Map<String, Object> root, final BPMNPropertyReference reference) {
+
+		final Map<String, String> replacements = new LinkedHashMap<>();
+		final Map<String, Object> data         = reference.getData();
+		final String sourceType                = reference.getType();
+
+		for (final Entry<String, Object> entry : data.entrySet()) {
+
+			final Map<String, Object> map = (Map)entry.getValue();
+			final String name             = (String)map.get("name");
+			final String key              = entry.getKey();
+
+			replacements.put(key, name);
+		}
+
+		for (final Entry<String, String> entry : replacements.entrySet()) {
+
+			final String key   = entry.getKey();
+			final String value = entry.getValue();
+			final Object map   = data.remove(key);
+
+			// replace
+			data.put(value, map);
+
+			// modify "required" property
+			final Map<String, Object> property = (Map)map;
+			if (property.containsKey("required")) {
+
+				if ("true".equalsIgnoreCase(property.get("required").toString())) {
+
+					property.put("required", true);
+
+				} else {
+
+					property.remove("required");
+				}
+			}
+
+			// create references for non-primitive properties
+			final String type = (String)property.get("type");
+			if (type != null) {
+
+				switch (type) {
+
+					// ignore these property types
+					case "string":
+					case "password":
+					case "thumbnail":
+					case "count":
+					case "script":
+					case "function":
+					case "boolean":
+					case "number":
+					case "integer":
+					case "long":
+					case "custom":
+					case "encrypted":
+					case "object":
+					case "array":
+						break;
+
+					default:
+						// non-primitive => create reference
+						createPropertyReference(root, sourceType, property);
+						break;
+				}
+			}
+
+			// cleanup
+			property.remove("displayName");
+			property.remove("name");
+		}
+	}
+
+	private void createPropertyReference(final Map<String, Object> root, final String taskType, final Map<String, Object> property) {
+
+		final String relatedType = (String)property.get("type");
+		final String relType     = (String)property.get("relType");
+		final String name        = (String)property.get("name");
+		final String relTypeName = relatedType + relType + taskType;
+
+		// remove attributes that are used to set up the relationship
+		property.remove("relType");
+		property.remove("required");
+
+		// create relationship
+		property.put("type", "object");
+		property.put("$link", "#/definitions/" + relTypeName);
+		property.put("$ref",  "#/definitions/" + relatedType);
+
+		final Map<String, Object> relationshipTypeDefinition = new LinkedHashMap<>();
+
+		relationshipTypeDefinition.put("$source",     "#/definitions/" + relatedType);
+		relationshipTypeDefinition.put("$target",     "#/definitions/" + taskType);
+		relationshipTypeDefinition.put("cardinality", "OneToOne");
+		relationshipTypeDefinition.put("rel",         relType);
+		relationshipTypeDefinition.put("sourceName",  name);
+
+		final Map<String, Object> definitions = (Map)root.get("definitions");
+		if (definitions != null) {
+
+			// store new relationship in root
+			definitions.put(relTypeName, relationshipTypeDefinition);
+
+			// store stub that allows us to reference a type that is not part of this schema
+			if (!definitions.containsKey(relatedType)) {
+
+				final Map<String, Object> stub = new LinkedHashMap<>();
+
+				stub.put("name", relatedType);
+
+				definitions.put(relatedType, stub);
+			}
+		}
 	}
 
 	public static void main(final String[] args) {

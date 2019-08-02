@@ -35,6 +35,7 @@ import org.structr.core.app.StructrApp;
 import org.structr.core.graph.Tx;
 import org.structr.schema.SchemaService;
 import org.structr.bpmn.model.BPMNProcessStep;
+import org.structr.common.SecurityContext;
 
 /**
  */
@@ -105,16 +106,23 @@ public class BPMNService extends Thread implements RunnableService {
 	@Override
 	public void run() {
 
+		final SecurityContext securityContext = SecurityContext.getSuperUserInstance();
+
+		securityContext.setAttribute("BPMNService", true);
+
 		running = true;
 
 		while (running) {
 
 			for (final BPMNProcessStep step : fetchActiveSteps()) {
 
-				try (final Tx tx = StructrApp.getInstance().tx()) {
+				try (final Tx tx = StructrApp.getInstance(securityContext).tx()) {
 
 					final Map<String, Object> context = new LinkedHashMap<>();
-					final Object value                = step.execute(context);
+
+					context.put("data", step);
+
+					final Object value = step.execute(context);
 
 					step.finish();
 					step.next(value);
@@ -142,8 +150,8 @@ public class BPMNService extends Thread implements RunnableService {
 
 			final List<BPMNProcessStep> nodes = app.nodeQuery(BPMNProcessStep.class)
 
-				.and(StructrApp.key(BPMNProcessStep.class, "isFinished"), false)
-				.and(StructrApp.key(BPMNProcessStep.class, "isPaused"), false)
+				.and(StructrApp.key(BPMNProcessStep.class, "isFinished"),  false)
+				.and(StructrApp.key(BPMNProcessStep.class, "isSuspended"), false)
 				.and()
 					.or(BPMNProcessStep.dueDate, null)
 					.orRange(BPMNProcessStep.dueDate, new Date(), null)

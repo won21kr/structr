@@ -333,6 +333,11 @@ public abstract class StructrPropertyDefinition implements JsonProperty, Structr
 			this.readOnly = (Boolean)source.get(JsonSchema.KEY_READ_ONLY);
 		}
 
+		// allow setting of not-null flag per property as well
+		if (source.containsKey(JsonSchema.KEY_REQUIRED)) {
+			this.required = (Boolean)source.get(JsonSchema.KEY_REQUIRED);
+		}
+
 		final Object _format = source.get(JsonSchema.KEY_FORMAT);
 		if (_format != null) {
 

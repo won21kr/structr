@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -33,6 +34,7 @@ import javax.xml.stream.events.Characters;
 import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
+import org.junit.platform.commons.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,28 +45,34 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 	private static final Logger logger = LoggerFactory.getLogger(BPMNHandler.class);
 
-	public static final String ACTION        = "action";
-	public static final String CONTENT       = "content";
-	public static final String ISROOT        = "isRoot";
-	public static final String MULTIPLICITY  = "multiplicity";
-	public static final String DEFAULTS      = "defaults";
-	public static final String PROPERTIES    = "properties";
-	public static final String PROPERTY_NAME = "propertyName";
-	public static final String ROOT_ELEMENT  = "root";
-	public static final String SKIP_ELEMENTS = "ignore";
-	public static final String TARGET_TYPE   = "targetType";
-	public static final String TYPE_MAPPING  = "types";
-	public static final String TYPE          = "type";
-	public static final String CREATE_NODE   = "createNode";
-	public static final String SET_PROPERTY  = "setProperty";
-	public static final String IGNORE        = "ignore";
+	public static final String EXTRACT          = "extract";
+	public static final String ACTION           = "action";
+	public static final String CONTENT          = "content";
+	public static final String ISROOT           = "isRoot";
+	public static final String MULTIPLICITY     = "multiplicity";
+	public static final String DEFAULTS         = "defaults";
+	public static final String PROPERTIES       = "properties";
+	public static final String PROPERTY_NAME    = "propertyName";
+	public static final String ROOT_ELEMENT     = "root";
+	public static final String SKIP_ELEMENTS    = "ignore";
+	public static final String TARGET_TYPE      = "targetType";
+	public static final String TYPE_MAPPING     = "types";
+	public static final String TYPE             = "type";
+	public static final String CREATE_NODE      = "createNode";
+	public static final String SET_PROPERTY     = "setProperty";
+	public static final String IGNORE           = "ignore";
+	public static final String REPLACE_WITH     = "replaceWith";
+	public static final String POST_PROCESS     = "postProcess";
 
-	private final Map<String, Object> configuration = new LinkedHashMap<>();
-	private Map<String, Object> nextElement         = null;
-	private BPMNTransform transform                 = null;
-	private XMLInputFactory factory                 = null;
-	private XMLEventReader reader                   = null;
-	private Element current                         = null;
+	private final List<BPMNPropertyReference> postProcessMaps = new LinkedList<>();
+	private final Map<String, Object> globalReferences       = new LinkedHashMap<>();
+	private final Map<String, Object> configuration          = new LinkedHashMap<>();
+	private BPMNPropertyProcessor postProcessHandler         = null;
+	private Map<String, Object> nextElement                  = null;
+	private BPMNTransform transform                          = null;
+	private XMLInputFactory factory                          = null;
+	private XMLEventReader reader                            = null;
+	private Element current                                  = null;
 
 	public BPMNHandler(final Map<String, Object> configuration, final Reader input) throws XMLStreamException {
 
@@ -102,7 +110,7 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 			final Map<String, String> defaults    = (Map)typeHandler.get(DEFAULTS);
 			final String action                   = (String)typeHandler.get(ACTION);
 			final Object isRoot                   = typeHandler.get(ISROOT);
-			final Map<String, Object> data        = new LinkedHashMap<>();
+			final Map<String, String> data        = new LinkedHashMap<>();
 
 			current.isRoot = Boolean.TRUE.equals(isRoot);
 
@@ -121,7 +129,7 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 						if (transform != null) {
 
-							value = transform.transform(current.getPath(), name, value);
+							value = transform.transform(current.getPath(), name, value, data);
 						}
 
 						if (properties != null && properties.containsKey(name))  {
@@ -141,9 +149,9 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 					defaults.forEach((key, value) -> {
 
 						if (!data.containsKey(key)) {
-							
+
 							if (transform != null) {
-								value = transform.transform(current.getPath(), key, value);
+								value = transform.transform(current.getPath(), key, value, data);
 							}
 
 							data.put(key, value);
@@ -184,6 +192,10 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 	void setTransform(final BPMNTransform transform) {
 		this.transform = transform;
+	}
+
+	void setPostProcessHandler(final BPMNPropertyProcessor handler) {
+		this.postProcessHandler = handler;
 	}
 
 	// ----- private methods -----
@@ -228,6 +240,30 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 		}
 	}
 
+	private void recurseAndReplace(final Map<String, Object> root, final Map<String, Object> entityData) {
+
+		for (final Entry<String, Object> entry : entityData.entrySet()) {
+
+			final String key   = entry.getKey();
+			final Object value = entry.getValue();
+
+			if (value instanceof Map) {
+
+				recurseAndReplace(root, (Map)value);
+			}
+
+			if (globalReferences.containsKey(key)) {
+
+				final Map<String, Object> reference = (Map)globalReferences.get(key);
+				final Map<String, Object> source    = (Map)reference.get("source");
+				final String path                   = (String)reference.get("path");
+				final Object resolvedData           = resolve(root, path, source);
+
+				entry.setValue(resolvedData);
+			}
+		}
+	}
+
 	private void handleCreateNode(final Element element, final Map<String, Object> entityData, final Map<String, Object> config) {
 
 		// copy and transform entity data into
@@ -257,32 +293,60 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 			String propertyName = (String)config.get(PROPERTY_NAME);
 			if (propertyName == null) {
 
-				// test
+				// fallback 1: use name
 				propertyName = (String)element.data.get("name");
+			}
+
+			if (propertyName == null) {
+
+				// fallback 1: use content
+				propertyName = element.text;
 			}
 
 			if (propertyName != null) {
 
 				final Map<String, Object> childData = new LinkedHashMap<>();
+				final Map<String, Object> properties = ((Map)config.get(PROPERTIES));
 
-				// add config.properties to childData
-				final Collection<Object>  mappedProperties = ((Map)config.get(PROPERTIES)).values();
-				element.data.forEach((String key, Object value) -> {
-					if (mappedProperties.contains(key)) {
-						childData.put(key, value);
-					}
-				});
+				if (properties != null) {
+
+					// add config.properties to childData
+					final Collection<Object>  mappedProperties = properties.values();
+
+					element.data.forEach((String key, Object value) -> {
+
+						if (mappedProperties.contains(key)) {
+
+							childData.put(key, value);
+						}
+					});
+
+				} else {
+
+					System.out.println("Missing property mappings for nested createNode action in " + element.tagName);
+				}
 
 				if ("1".equals(config.get(MULTIPLICITY))) {
 
-					// handle data for nested child element
-					entityData.put(propertyName, childData);
-
-					childData.put(TYPE, type);
+					if (type != null) {
+						childData.put(TYPE, type);
+					}
 
 					for (final Element child : element.children) {
 
 						convertAndTransform(child, childData);
+					}
+
+					// handle data for nested child element
+					if (entityData.containsKey(propertyName) && entityData.get(propertyName) instanceof Map) {
+
+						// try to merge..
+						final Map<String, Object> data = (Map)entityData.get(propertyName);
+						data.putAll(childData);
+
+					} else {
+
+						entityData.put(propertyName, childData);
 					}
 
 				} else {
@@ -299,7 +363,10 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 					for (final Element child : element.children) {
 
-						childData.put(TYPE, type);
+						if (type != null) {
+							childData.put(TYPE, type);
+						}
+
 						convertAndTransform(child, childData);
 					}
 				}
@@ -316,10 +383,35 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 					childData.put(contentName, element.text);
 				}
 
+				if (config.containsKey(REPLACE_WITH)) {
+
+					final Map<String, Object> reference = new LinkedHashMap<>();
+
+					reference.put("path", config.get(REPLACE_WITH));
+					reference.put("source", childData);
+
+					globalReferences.put(propertyName, reference);
+				}
+
+				if (config.containsKey(EXTRACT)) {
+
+					final String extractedKey   = (String)config.get(EXTRACT);
+					final Object extractedValue = childData.get(extractedKey);
+
+					entityData.put(propertyName, extractedValue);
+				}
+
 			} else {
 
 				System.out.println("Missing property name for nested createNode action in " + element.tagName);
 			}
+		}
+
+		if (config.containsKey(POST_PROCESS)) {
+
+			final String taskType = (String)element.parent.parent.data.get("name");
+
+			postProcessMaps.add(new BPMNPropertyReference(taskType, entityData));
 		}
 	}
 
@@ -339,6 +431,10 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 			propertyName = element.tagName;
 		}
 
+		if ("$content".equals(propertyName)) {
+			propertyName = element.text;
+		}
+
 		entityData.put(propertyName, element.text);
 	}
 
@@ -353,11 +449,58 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 		return map;
 	}
 
+	private Object resolve(final Map<String, Object> root, final String path, final Map<String, Object> data) {
+
+		final String[] parts = path.split("[/]+");
+		Object current       = root;
+
+		for (int i=0; i<parts.length; i++) {
+
+			final String part = parts[i];
+
+			// skip empty parts
+			if (StringUtils.isNotBlank(part)) {
+
+				if (part.startsWith("$")) {
+
+					final String reference = part.substring(1);
+					final String key       = (String)data.get(reference);
+
+					if (current instanceof Map) {
+
+						current = ((Map)current).get(key);
+					}
+
+				} else if ("#".equals(part) && current instanceof List) {
+
+					return null;
+
+				} else if ("*".equals(part)) {
+
+					if (current instanceof Map) {
+
+						return ((Map)current).values();
+					}
+
+				} else {
+
+					if (current instanceof Map) {
+
+						current = ((Map)current).get(part);
+					}
+				}
+			}
+		}
+
+		return current;
+	}
+
 	// ----- nested classes -----
 	private class Element {
 
-		private Map<String, Object> data = new LinkedHashMap<>();
+		private Map<String, String> data = new LinkedHashMap<>();
 		private List<Element> children   = new LinkedList<>();
+		private boolean moveable     = false;
 		private boolean isRoot           = false;
 		private Element parent           = null;
 		private String tagName           = null;
@@ -385,7 +528,7 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 			return buf.toString();
 		}
 
-		public void setData(final Map<String, Object> data) {
+		public void setData(final Map<String, String> data) {
 			this.data.putAll(data);
 		}
 
@@ -400,6 +543,10 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 			}
 
 			return "/" + tagName;
+		}
+
+		public Map<String, String> getData() {
+			return data;
 		}
 	}
 
@@ -442,6 +589,20 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 				logger.warn(strex.getMessage());
 				break;
 			}
+		}
+
+		// do replacement actions here..
+		if (nextElement != null) {
+
+			recurseAndReplace(nextElement, nextElement);
+
+			((Map)nextElement.get("definitions")).keySet().removeAll(globalReferences.keySet());
+		}
+
+		// post-processing
+		for (final BPMNPropertyReference ref : postProcessMaps) {
+
+			postProcessHandler.processProperties(nextElement, ref);
 		}
 
 		// either an element has been created, or the stream is at its end

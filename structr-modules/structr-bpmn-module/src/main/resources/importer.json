@@ -19,7 +19,7 @@
       "$extends": "$extends"
     },
     "defaults": {
-      "$extends": "https://structr.org/v1.1/definitions/BPMNStart",
+      "$extends": "https://structr.org/v1.1/definitions/BPMNProcess",
       "category": ""
     }
   },
@@ -54,11 +54,26 @@
     "multiplicity": "1",
     "properties": {
       "id": "name",
+      "name": "description",
       "category": "category",
       "$extends": "$extends"
     },
     "defaults": {
       "$extends": "https://structr.org/v1.1/definitions/BPMNAction",
+      "category": ""
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:userTask": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "id": "name",
+      "name": "description",
+      "category": "category",
+      "$extends": "$extends"
+    },
+    "defaults": {
+      "$extends": "https://structr.org/v1.1/definitions/BPMNUserInputAction",
       "category": ""
     }
   },
@@ -76,21 +91,6 @@
       "scriptFormat": "scriptFormat"
     },
     "content": "source"
-  },
-  "/bpmn:definitions/bpmn:process/bpmn:sequenceFlow": {
-    "action": "createNode",
-    "multiplicity": "1",
-    "properties": {
-      "id": "name",
-      "name": "rel",
-      "sourceRef": "$source",
-      "targetRef": "$target",
-      "targetName": "targetName"
-    },
-    "defaults": {
-      "rel": "next",
-      "targetName": "next"
-    }
   },
   "/bpmn:definitions/bpmn:process/bpmn:task/bpmn:extensionElements/camunda:properties": {
     "action": "createNode",
@@ -121,5 +121,50 @@
       "action": "name",
       "value": "source"
     }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:sequenceFlow": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "id": "name",
+      "name": "rel",
+      "sourceRef": "$source",
+      "targetRef": "$target",
+      "targetName": "targetName"
+    },
+    "defaults": {
+      "rel": "next",
+      "targetName": "next"
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:task/bpmn:dataInputAssociation": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "propertyName": "properties",
+    "properties": {
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:task/bpmn:dataInputAssociation/bpmn:sourceRef": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {},
+    "replaceWith": "/definitions/$content",
+    "postProcess": true
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:dataObjectReference": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "name": "displayName",
+      "id": "name"
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:dataObjectReference/bpmn:extensionElements/camunda:properties/camunda:property": {
+    "action": "createNode",
+    "multiplicity": "1",
+    "properties": {
+      "value": "value"
+    },
+    "extract": "value"
   }
 }

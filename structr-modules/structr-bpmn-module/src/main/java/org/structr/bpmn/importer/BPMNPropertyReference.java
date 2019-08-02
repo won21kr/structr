@@ -21,10 +21,24 @@ package org.structr.bpmn.importer;
 import java.util.Map;
 
 /**
- *
  */
+public class BPMNPropertyReference {
 
-public interface BPMNTransform {
+	private Map<String, Object> properties = null;
+	private String type                    = null;
 
-	String transform(final String path, final String name, final String value, final Map<String, String> data);
+	public BPMNPropertyReference(final String type, final Map<String, Object> data) {
+
+		this.properties = data;
+		this.type       = type;
+	}
+
+	public Map<String, Object> getData() {
+		return properties;
+	}
+
+	public String getType() {
+		return type;
+	}
+
 }
