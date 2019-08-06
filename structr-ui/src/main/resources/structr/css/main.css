@@ -3045,6 +3045,35 @@ input.bitmask {
 	display: table-cell;
 }
 
+#bpmn-contents table {
+	width: 50%;
+	border: 1px solid #ddd;
+}
+
+#bpmn-contents table th {
+	text-align: left;
+	padding: 5px;
+}
+
+#bpmn-contents table td {
+	text-align: left;
+	padding: 5px;
+	background-color: transparent;
+}
+
+#bpmn-contents table th {
+	background-color: #e4e4e4;
+	padding: 5px;
+}
+
+#bpmn-contents table tr:nth-child(odd) {
+	background-color: #f5f5f5;
+}
+
+#bpmn-contents .text-right {
+	text-align: right;
+}
+
 /*
  * Graph
  */

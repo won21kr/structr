@@ -122,14 +122,21 @@ public class BPMNService extends Thread implements RunnableService {
 
 					context.put("data", step);
 
-					final Object value = step.execute(context);
+					if (step.canBeExecuted()) {
 
-					step.finish();
-					step.next(value);
+						final Object value = step.execute(context);
+
+						// explicit finish() method, can be overwritten by implementations
+						step.finish();
+
+						// find and assign next step if possible
+						step.next(value);
+					}
 
 					tx.success();
 
 				} catch (FrameworkException fex) {
+
 					fex.printStackTrace();
 				}
 			}

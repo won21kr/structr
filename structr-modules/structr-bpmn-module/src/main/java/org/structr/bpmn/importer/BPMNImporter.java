@@ -173,72 +173,90 @@ public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 		final Map<String, String> replacements = new LinkedHashMap<>();
 		final Map<String, Object> data         = reference.getData();
 		final String sourceType                = reference.getType();
+		final Map<String, Object> properties   = (Map)data.get("properties");
 
-		for (final Entry<String, Object> entry : data.entrySet()) {
+		if (properties != null) {
 
-			final Map<String, Object> map = (Map)entry.getValue();
-			final String name             = (String)map.get("name");
-			final String key              = entry.getKey();
+			properties.remove("name");
 
-			replacements.put(key, name);
-		}
+			for (final Entry<String, Object> entry : properties.entrySet()) {
 
-		for (final Entry<String, String> entry : replacements.entrySet()) {
+				final String key   = entry.getKey();
+				final Object value = entry.getValue();
 
-			final String key   = entry.getKey();
-			final String value = entry.getValue();
-			final Object map   = data.remove(key);
+				if (value instanceof Map) {
 
-			// replace
-			data.put(value, map);
+					final Map<String, Object> map   = (Map)entry.getValue();
+					final Map<String, Object> props = (Map)map.get("properties");
 
-			// modify "required" property
-			final Map<String, Object> property = (Map)map;
-			if (property.containsKey("required")) {
+					if (props != null) {
 
-				if ("true".equalsIgnoreCase(property.get("required").toString())) {
+						final String name = (String)props.get("name");
 
-					property.put("required", true);
-
-				} else {
-
-					property.remove("required");
+						replacements.put(key, name);
+					}
 				}
 			}
 
-			// create references for non-primitive properties
-			final String type = (String)property.get("type");
-			if (type != null) {
+			for (final Entry<String, String> entry : replacements.entrySet()) {
 
-				switch (type) {
+				final String key             = entry.getKey();
+				final String value           = entry.getValue();
+				Map<String, Object> property = (Map)properties.remove(key);
 
-					// ignore these property types
-					case "string":
-					case "password":
-					case "thumbnail":
-					case "count":
-					case "script":
-					case "function":
-					case "boolean":
-					case "number":
-					case "integer":
-					case "long":
-					case "custom":
-					case "encrypted":
-					case "object":
-					case "array":
-						break;
+				// move one level up
+				property = (Map)property.remove("properties");
 
-					default:
-						// non-primitive => create reference
-						createPropertyReference(root, sourceType, property);
-						break;
+				// replace
+				properties.put(value, property);
+
+				// modify "required" property
+				if (property.containsKey("required")) {
+
+					if ("true".equalsIgnoreCase(property.get("required").toString())) {
+
+						property.put("required", true);
+
+					} else {
+
+						property.remove("required");
+					}
 				}
-			}
 
-			// cleanup
-			property.remove("displayName");
-			property.remove("name");
+				// create references for non-primitive properties
+				final String type = (String)property.get("type");
+				if (type != null) {
+
+					switch (type) {
+
+						// ignore these property types
+						case "string":
+						case "password":
+						case "thumbnail":
+						case "count":
+						case "script":
+						case "function":
+						case "boolean":
+						case "number":
+						case "integer":
+						case "long":
+						case "custom":
+						case "encrypted":
+						case "object":
+						case "array":
+							break;
+
+						default:
+							// non-primitive => create reference
+							createPropertyReference(root, sourceType, property);
+							break;
+					}
+				}
+
+				// cleanup
+				property.remove("displayName");
+				property.remove("name");
+			}
 		}
 	}
 

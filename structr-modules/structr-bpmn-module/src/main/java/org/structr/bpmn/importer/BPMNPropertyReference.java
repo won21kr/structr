@@ -25,12 +25,14 @@ import java.util.Map;
 public class BPMNPropertyReference {
 
 	private Map<String, Object> properties = null;
+	private String referenceName           = null;
 	private String type                    = null;
 
-	public BPMNPropertyReference(final String type, final Map<String, Object> data) {
+	public BPMNPropertyReference(final String type, final Map<String, Object> data, final String referenceName) {
 
-		this.properties = data;
-		this.type       = type;
+		this.referenceName = referenceName;
+		this.properties    = data;
+		this.type          = type;
 	}
 
 	public Map<String, Object> getData() {
@@ -41,4 +43,7 @@ public class BPMNPropertyReference {
 		return type;
 	}
 
+	public String getReferenceName() {
+		return referenceName;
+	}
 }

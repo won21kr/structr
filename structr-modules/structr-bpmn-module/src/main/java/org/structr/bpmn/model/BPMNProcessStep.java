@@ -23,11 +23,13 @@ import java.util.Map;
 import org.structr.common.SecurityContext;
 import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
+import org.structr.core.app.StructrApp;
 import org.structr.core.entity.AbstractNode;
 import org.structr.core.property.BooleanProperty;
 import org.structr.core.property.EndNode;
 import org.structr.core.property.ISO8601DateProperty;
 import org.structr.core.property.Property;
+import org.structr.core.property.PropertyKey;
 import org.structr.core.property.StartNode;
 
 /**
@@ -44,7 +46,6 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 	public static final Property<Date> dueDate                 = new ISO8601DateProperty("dueDate").indexed();
 
 	public abstract T execute(final Map<String, Object> context) throws FrameworkException;
-	public abstract BPMNProcessStep getNextStep(final T t) throws FrameworkException;
 
 	public void next(final T t) throws FrameworkException {
 
@@ -55,12 +56,42 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 		}
 	}
 
+	public BPMNProcessStep getNextStep(final Object data) throws FrameworkException {
+
+		final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), "next", false);
+		if (nextKey != null) {
+
+			final Class<BPMNProcessStep> nextType = nextKey.relatedType();
+			if (nextType != null) {
+
+				return StructrApp.getInstance(securityContext).create(nextType);
+			}
+		}
+
+		return null;
+	}
+
+	public boolean isSuspended() {
+		return getProperty(isSuspended);
+	}
+
 	public boolean isFinished() {
 		return getProperty(isFinished);
 	}
 
 	public void finish() throws FrameworkException {
 		setProperty(isFinished, true);
+	}
+
+	public boolean canBeExecuted() {
+
+		// check required properties here?
+
+		return true;
+	}
+
+	public String getStatusText() {
+		return null;
 	}
 
 	@Override

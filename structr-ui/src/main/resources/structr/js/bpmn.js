@@ -127,6 +127,7 @@ var _BPMN = {
 			$('#tree-back-button').on('click', _BPMN.pathLocationBackward);
 			$('#cancel-search-button').on('click', _BPMN.cancelSearch);
 
+			/*
 			$(window).on('keydown.search', function (e) {
 				if (_BPMN.searchIsActive()) {
 					if (e.key === 'Escape') {
@@ -135,27 +136,8 @@ var _BPMN = {
 				}
 				;
 			});
+			*/
 
-			var modeler = new BpmnJS({
-				container: '#bpmn-contents',
-				propertiesPanel: {
-					parent: '#bpmn-context'
-				}
-			});
-
-			modeler.on('selection.changed', (e) => {
-				console.log(e);
-			});
-
-			modeler.on('element.changed', (e) => {
-				console.log(e);
-			});
-
-			var xml = '<?xml version="1.0" encoding="UTF-8"?><bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Definitions_1au1qvg" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="3.0.0-dev"><bpmn:process id="Process_1ke4992" isExecutable="true"><bpmn:startEvent id="StartEvent_1" /></bpmn:process><bpmndi:BPMNDiagram id="BPMNDiagram_1"><bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1ke4992"><bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1"><dc:Bounds x="179" y="159" width="36" height="36" /></bpmndi:BPMNShape></bpmndi:BPMNPlane></bpmndi:BPMNDiagram></bpmn:definitions>';
-
-			modeler.importXML(xml, function (err) {
-				console.log(err);
-			});
 		});
 
 	},
@@ -167,10 +149,11 @@ var _BPMN = {
 
 				var defaultDiagramEntries = [
 					{
-						id: 'favorites',
-						text: 'Favorites',
+						id: 'running',
+						text: 'Manage Running Processes',
 						children: false,
-						icon: _Icons.star_icon
+						icon: _Icons.exec_icon,
+						path: '/'
 					},
 					{
 						id: 'root',
@@ -192,12 +175,62 @@ var _BPMN = {
 				callback([]);
 				break;
 
+			case 'running':
+				callback([]);
+				break;
+
 			default:
 				break;
 		}
 
 	},
-	displayProperties: function(event) {
+	handleTreeClick: function(event, data) {
+
+		switch (data.node.id) {
+
+			case 'running':
+				_BPMN.showManageProcesses();
+				break;
+		}
+	},
+	showManageProcesses: function() {
+
+		Structr.fetchHtmlTemplate('bpmn/manage', {}, function (html) {
+
+			main = document.querySelector('#bpmn-contents');
+			main.innerHTML = html;
+
+			//query: function(type, pageSize, page, sort, order, properties, callback, exact, view, customView) {
+			Command.query('BPMNProcess', 1000, 1, 'name', 'asc', undefined, function(result) {
+
+				let table = document.querySelector('#bpmn-process-list');
+
+				result.forEach(function(p) {
+
+					console.log(p);
+
+					Structr.fetchHtmlTemplate('bpmn/process-table-row', { process: p, status: p.status }, function (html) {
+
+						$(table).append(html);
+
+						if (p && p.status && p.status.currentStep && !p.status.finished) {
+
+							let stepId = p.status.currentStep.id;
+
+							$('#finish-' + stepId).on('click', function() {
+
+								Command.setProperty(stepId, 'isSuspended', false, false, function() {
+									_BPMN.showManageProcesses();
+								});
+							});
+						}
+					});
+				});
+
+			}, true, 'public');
+
+
+		});
 
 	}
 }

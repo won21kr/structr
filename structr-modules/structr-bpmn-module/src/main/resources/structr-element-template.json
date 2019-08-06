@@ -38,6 +38,42 @@
     ]
   },
   {
+    "name": "Structr Relationship",
+    "id": "org.structr.bpmn.RelatedNode",
+    "appliesTo": [
+      "bpmn:DataObjectReference"
+    ],
+    "properties": [
+      {
+        "label": "Name",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "name"
+        }
+      },
+      {
+        "label": "Target Type",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "type"
+        }
+      },
+      {
+        "label": "Relationship Type",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "relType"
+        }
+      }
+    ]
+  },
+  {
     "name": "Structr Property",
     "id": "org.structr.bpmn.Property",
     "isDefault": true,
@@ -70,15 +106,6 @@
         "binding": {
           "type": "camunda:property",
           "name": "required"
-        }
-      },
-      {
-        "label": "Relationship Type",
-        "type": "String",
-        "value": "",
-        "binding": {
-          "type": "camunda:property",
-          "name": "relType"
         }
       }
     ]

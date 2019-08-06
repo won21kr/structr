@@ -22,8 +22,6 @@ import java.util.Map;
 import org.slf4j.LoggerFactory;
 import org.structr.common.SecurityContext;
 import org.structr.common.error.FrameworkException;
-import org.structr.core.app.StructrApp;
-import org.structr.core.property.PropertyKey;
 
 /**
  *
@@ -42,21 +40,5 @@ public abstract class BPMNAction extends BPMNProcessStep<Object> {
 	@Override
 	public Object execute(final Map<String, Object> context) throws FrameworkException {
 		return action(securityContext, context);
-	}
-
-	@Override
-	public BPMNProcessStep getNextStep(final Object data) throws FrameworkException {
-
-		final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), "next", false);
-		if (nextKey != null) {
-
-			final Class<BPMNProcessStep> nextType = nextKey.relatedType();
-			if (nextType != null) {
-
-				return StructrApp.getInstance(securityContext).create(nextType);
-			}
-		}
-
-		return null;
 	}
 }

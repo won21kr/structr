@@ -28,7 +28,7 @@ import org.structr.common.error.FrameworkException;
  *
  */
 
-public abstract class BPMNUserInputAction extends BPMNProcessStep<Object> {
+public abstract class BPMNManualAction extends BPMNProcessStep<Object> {
 
 	@Override
 	public void onCreation(final SecurityContext securityContext, final ErrorBuffer errorBuffer) throws FrameworkException {
@@ -40,7 +40,7 @@ public abstract class BPMNUserInputAction extends BPMNProcessStep<Object> {
 	// method must be implemented by schema type
 	public Object action(final SecurityContext securityContext, final Map<String, Object> parameters) throws FrameworkException {
 
-		LoggerFactory.getLogger(BPMNAction.class).info("BPMNUserInputAction {}: no action specified.", getClass().getSimpleName());
+		LoggerFactory.getLogger(BPMNAction.class).info("BPMNManualAction {}: no action specified.", getClass().getSimpleName());
 
 		return null;
 	}
@@ -52,6 +52,6 @@ public abstract class BPMNUserInputAction extends BPMNProcessStep<Object> {
 
 	@Override
 	public String getStatusText() {
-		return "Waiting for user input";
+		return "Waiting for manual activation";
 	}
 }

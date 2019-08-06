@@ -18,8 +18,11 @@
  */
 package org.structr.bpmn.model;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
+import org.structr.common.PropertyView;
 import org.structr.common.SecurityContext;
+import org.structr.common.View;
 import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
 import org.structr.core.app.StructrApp;
@@ -36,7 +39,12 @@ import org.structr.core.property.PropertyMap;
 
 public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 
-	public static final Property<Object> data = new BPMNDataProperty("data");
+	public static final Property<Object> status = new BPMNStatusProperty("status");
+	public static final Property<Object> data   = new BPMNDataProperty("data");
+
+	public static final View publicView = new View(BPMNProcess.class, PropertyView.Public,
+		status
+	);
 
 	@Override
 	public Object execute(final Map<String, Object> context) throws FrameworkException {
@@ -72,6 +80,19 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 		return null;
 	}
 
+	public Map<String, Object> getStatus() {
+
+		final BPMNProcessStep currentStep = findCurrentStep();
+		final Map<String, Object> status  = new LinkedHashMap<>();
+
+		status.put("currentStep", currentStep);
+		status.put("status",      currentStep.getStatusText());
+		status.put("finished",    currentStep instanceof BPMNEnd);  // isFinished != process finished
+		status.put("suspended",   currentStep.isSuspended());
+
+		return status;
+	}
+
 	// ----- private methods -----
 	private PropertyMap getDataForNextStep(final Class type) throws FrameworkException {
 
@@ -83,4 +104,24 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 
 		return PropertyMap.inputTypeToJavaType(securityContext, type, data);
 	}
+
+	private BPMNProcessStep findCurrentStep() {
+
+		BPMNProcessStep current = this;
+		BPMNProcessStep next    = null;
+
+
+		do {
+
+			next = current.getProperty(nextStep);
+			if (next != null) {
+
+				current = next;
+			}
+
+		} while (next != null);
+
+		return current;
+	}
+
 }

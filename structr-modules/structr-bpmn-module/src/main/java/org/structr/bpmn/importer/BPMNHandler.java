@@ -409,9 +409,9 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 		if (config.containsKey(POST_PROCESS)) {
 
-			final String taskType = (String)element.parent.parent.data.get("name");
+			final String taskType = (String)element.parent.data.get("name");
 
-			postProcessMaps.add(new BPMNPropertyReference(taskType, entityData));
+			postProcessMaps.add(new BPMNPropertyReference(taskType, entityData, element.text));
 		}
 	}
 
@@ -444,6 +444,20 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 		if (map == null) {
 
 			map = (Map)configuration.get(element.tagName);
+		}
+
+		if (map == null) {
+
+			final String path = element.getPath();
+
+			// resolve wildcards in path
+			for (final String key : configuration.keySet()) {
+
+				if (matches(path, key)) {
+
+					return (Map)configuration.get(key);
+				}
+			}
 		}
 
 		return map;
@@ -494,6 +508,36 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 		return current;
 	}
+
+	private boolean matches(final String path, final String pattern) {
+
+		if (pattern.contains("*")) {
+
+			final String[] patternParts = pattern.split("[/:]+");
+			final String[] pathParts    = path.split("[/:]+");
+			final int len               = pathParts.length;
+
+			if (patternParts.length == pathParts.length) {
+
+				for (int i=0; i<len; i++) {
+
+					if ("*".equals(patternParts[i]) || patternParts[i].equals(pathParts[i])) {
+
+						// no nothing
+
+					} else {
+
+						return false;
+					}
+				}
+
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 
 	// ----- nested classes -----
 	private class Element {

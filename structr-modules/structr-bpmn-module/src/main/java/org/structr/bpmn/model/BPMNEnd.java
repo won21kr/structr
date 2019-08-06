@@ -20,8 +20,6 @@ package org.structr.bpmn.model;
 
 import java.util.Map;
 import org.structr.common.error.FrameworkException;
-import org.structr.core.app.StructrApp;
-import org.structr.core.property.PropertyKey;
 
 /**
  *
@@ -31,22 +29,6 @@ public abstract class BPMNEnd extends BPMNProcessStep<Object> {
 
 	@Override
 	public Object execute(final Map<String, Object> context) throws FrameworkException {
-		return null;
-	}
-
-	@Override
-	public BPMNProcessStep getNextStep(final Object data) throws FrameworkException {
-
-		final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), "next", false);
-		if (nextKey != null) {
-
-			final Class<BPMNProcessStep> nextType = nextKey.relatedType();
-			if (nextType != null) {
-
-				return StructrApp.getInstance().create(nextType);
-			}
-		}
-
 		return null;
 	}
 }
