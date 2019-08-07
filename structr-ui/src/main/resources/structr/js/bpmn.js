@@ -17,7 +17,7 @@
  * along with Structr.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-var main, bpmnMain, bpmnTree, bpmnContents, bpmnContext;
+var bpmnMain, bpmnTree, bpmnContents, bpmnContext;
 var drop;
 var selectedElements = [];
 var activeMethodId, methodContents = {};
@@ -41,13 +41,13 @@ var _BPMN = {
 	searchTextLength: 0,
 	lastClickedPath: '',
 	bpmnRecentElementsKey: 'structrBPMNRecentElements_' + port,
+	timeouts: {},
 	init: function () {
 
 		_Logger.log(_LogType.BPMN, '_BPMN.init');
 
 		Structr.makePagesMenuDroppable();
 		Structr.adaptUiToAvailableFeatures();
-
 
 	},
 	resize: function () {
@@ -91,8 +91,7 @@ var _BPMN = {
 
 		Structr.fetchHtmlTemplate('bpmn/main', {}, function (html) {
 
-			main = document.querySelector('#main');
-			main.innerHTML = html;
+			main.append(html);
 
 			_BPMN.init();
 
@@ -197,34 +196,46 @@ var _BPMN = {
 
 		Structr.fetchHtmlTemplate('bpmn/manage', {}, function (html) {
 
-			main = document.querySelector('#bpmn-contents');
-			main.innerHTML = html;
+			$('#bpmn-contents').empty();
+			$('#bpmn-contents').append(html);
 
 			//query: function(type, pageSize, page, sort, order, properties, callback, exact, view, customView) {
-			Command.query('BPMNProcess', 1000, 1, 'name', 'asc', undefined, function(result) {
+			Command.query('SchemaNode', 1000, 1, 'name', 'asc', { extendsClass: 'org.structr.bpmn.model.BPMNProcess' }, function(result) {
 
-				let table = document.querySelector('#bpmn-process-list');
+				let table = document.querySelector('#bpmn-available-process-list');
 
 				result.forEach(function(p) {
 
-					console.log(p);
-
-					Structr.fetchHtmlTemplate('bpmn/process-table-row', { process: p, status: p.status }, function (html) {
+					Structr.fetchHtmlTemplate('bpmn/available-process-table-row', { process: p, status: p.status }, function (html) {
 
 						$(table).append(html);
 
-						if (p && p.status && p.status.currentStep && !p.status.finished) {
+						$('#start-' + p.name).on('click', function() {
 
-							let stepId = p.status.currentStep.id;
+							let data = {
+								type: p.name
+							};
 
-							$('#finish-' + stepId).on('click', function() {
+							Command.create(data, function(p) {
 
-								Command.setProperty(stepId, 'isSuspended', false, false, function() {
-									_BPMN.showManageProcesses();
-								});
+								$('#bpmn-running-process-list').prepend('<tr id="row-' + p.id + '"><td></td><td></td><td></td><td></td></tr>');
+								_BPMN.enableContinuousUpdate(p.id);
 							});
-						}
+						});
 					});
+				});
+
+			}, true, 'public');
+
+
+			//query: function(type, pageSize, page, sort, order, properties, callback, exact, view, customView) {
+			Command.query('BPMNProcess', 1000, 1, 'createdDate', 'desc', undefined, function(result) {
+
+				let table = $('#bpmn-running-process-list');
+
+				result.forEach(function(p) {
+
+					_BPMN.appendRow(table, p);
 				});
 
 			}, true, 'public');
@@ -232,5 +243,61 @@ var _BPMN = {
 
 		});
 
+	},
+	updateRow: function(id) {
+
+		Command.get(id, "id,type,status", function(p) {
+
+			_BPMN.appendRow($('#row-' + id), p, true);
+		});
+	},
+	appendRow: function(container, p, replace) {
+
+		Structr.fetchHtmlTemplate('bpmn/running-process-table-row', { process: p, status: p.status }, function (html) {
+
+			if (replace) {
+				container.replaceWith(html);
+			} else {
+				container.append(html);
+			}
+
+			if (p && p.status && p.status.currentStep && !p.status.finished && p.status.suspended) {
+
+				let stepId = p.status.currentStep.id;
+
+				$('#actions-' + stepId).append('<button class="action button" id="finish-' + stepId + '">' + _Icons.getHtmlForIcon(_Icons.exec_icon) + ' Next</button>');
+				$('#finish-' + stepId).on('click', function() {
+
+					Command.setProperty(stepId, 'isSuspended', false, false, function() {
+
+						_BPMN.enableContinuousUpdate(p.id);
+					});
+				});
+			}
+		});
+
+	},
+	enableContinuousUpdate: function(id) {
+
+		if (_BPMN.timeouts[id]) {
+
+			window.clearInterval(_BPMN.timeouts[id]);
+		}
+
+		if (id && id.length) {
+
+			_BPMN.updateRow(id);
+
+			_BPMN.timeouts[id] = window.setInterval(function() {
+				_BPMN.updateRow(id);
+			}, 200);
+
+		}
+	},
+	stopAllTimeouts: function() {
+
+		Object.keys(_BPMN.timeouts).forEach(function(key) {
+			window.clearInterval(_BPMN.timeouts[key]);
+		});
 	}
 }

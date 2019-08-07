@@ -19,6 +19,7 @@
 package org.structr.bpmn.model;
 
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.structr.common.SecurityContext;
 import org.structr.common.error.ErrorBuffer;
@@ -46,6 +47,7 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 	public static final Property<Date> dueDate                 = new ISO8601DateProperty("dueDate").indexed();
 
 	public abstract T execute(final Map<String, Object> context) throws FrameworkException;
+	public abstract String getStatusText();
 
 	public void next(final T t) throws FrameworkException {
 
@@ -83,15 +85,23 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 		setProperty(isFinished, true);
 	}
 
-	public boolean canBeExecuted() {
+	public void suspend() throws FrameworkException {
+		setProperty(isSuspended, true);
+	}
 
-		// check required properties here?
-
+	public Object canBeExecuted(final SecurityContext securityContext, final Map<String, Object> parameters) throws FrameworkException {
 		return true;
 	}
 
-	public String getStatusText() {
-		return null;
+	public boolean canBeExecuted() throws FrameworkException {
+
+		final Object value = canBeExecuted(securityContext, new LinkedHashMap<>());
+		if (value != null && value instanceof Boolean) {
+
+			return (Boolean)value;
+		}
+
+		throw new FrameworkException(422, "Return value of canBeExecuted() method must be of type boolean");
 	}
 
 	@Override

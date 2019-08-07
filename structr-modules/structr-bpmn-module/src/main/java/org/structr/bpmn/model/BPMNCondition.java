@@ -72,4 +72,9 @@ public abstract class BPMNCondition extends BPMNProcessStep<Object> {
 
 		return null;
 	}
+
+	@Override
+	public String getStatusText() {
+		return "Waiting on condition";
+	}
 }

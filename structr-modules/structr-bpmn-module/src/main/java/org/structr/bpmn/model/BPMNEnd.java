@@ -31,4 +31,9 @@ public abstract class BPMNEnd extends BPMNProcessStep<Object> {
 	public Object execute(final Map<String, Object> context) throws FrameworkException {
 		return null;
 	}
+
+	@Override
+	public String getStatusText() {
+		return "Process finished";
+	}
 }

@@ -41,4 +41,9 @@ public abstract class BPMNAction extends BPMNProcessStep<Object> {
 	public Object execute(final Map<String, Object> context) throws FrameworkException {
 		return action(securityContext, context);
 	}
+
+	@Override
+	public String getStatusText() {
+		return "Executing action";
+	}
 }

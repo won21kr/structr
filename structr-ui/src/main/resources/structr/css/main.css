@@ -3045,14 +3045,14 @@ input.bitmask {
 	display: table-cell;
 }
 
+#bpmn-contents button {
+	margin: inherit !important;
+}
+
 #bpmn-contents table {
 	width: 50%;
 	border: 1px solid #ddd;
-}
-
-#bpmn-contents table th {
-	text-align: left;
-	padding: 5px;
+	table-layout: fixed;
 }
 
 #bpmn-contents table td {
@@ -3062,6 +3062,7 @@ input.bitmask {
 }
 
 #bpmn-contents table th {
+	text-align: left;
 	background-color: #e4e4e4;
 	padding: 5px;
 }

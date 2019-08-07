@@ -20,6 +20,8 @@ package org.structr.bpmn.model;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.structr.common.PropertyView;
 import org.structr.common.SecurityContext;
 import org.structr.common.View;
@@ -31,13 +33,13 @@ import org.structr.core.property.PropertyKey;
 import org.structr.core.property.PropertyMap;
 
 /**
- * The start of a BPMN process. A BPMNStart instance bootstraps the BPMN process,
- * creates an instance of the first process task and provides input data for it.
- * If the process can be started successfully, the BPMNStart instance sets
- * isFinished to true to avoid repeated execution.
+ * The "head" of a BPMN process. A BPMNPRocess instance bootstraps the BPMN process
+ * and provides control and status functions for the running process.
  */
 
 public abstract class BPMNProcess extends BPMNProcessStep<Object> {
+
+	private static final Logger logger = LoggerFactory.getLogger(BPMNProcess.class);
 
 	public static final Property<Object> status = new BPMNStatusProperty("status");
 	public static final Property<Object> data   = new BPMNDataProperty("data");
@@ -82,15 +84,22 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 
 	public Map<String, Object> getStatus() {
 
-		final BPMNProcessStep currentStep = findCurrentStep();
+		final BPMNProcessInfo info        = new BPMNProcessInfo();
+		final BPMNProcessStep currentStep = findCurrentStep(info);
 		final Map<String, Object> status  = new LinkedHashMap<>();
 
 		status.put("currentStep", currentStep);
 		status.put("status",      currentStep.getStatusText());
 		status.put("finished",    currentStep instanceof BPMNEnd);  // isFinished != process finished
 		status.put("suspended",   currentStep.isSuspended());
+		status.put("steps",       info.getNumberOfSteps());
 
 		return status;
+	}
+
+	@Override
+	public String getStatusText() {
+		return "Process not started yet";
 	}
 
 	// ----- private methods -----
@@ -105,11 +114,11 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 		return PropertyMap.inputTypeToJavaType(securityContext, type, data);
 	}
 
-	private BPMNProcessStep findCurrentStep() {
+	private BPMNProcessStep findCurrentStep(final BPMNProcessInfo info) {
 
 		BPMNProcessStep current = this;
 		BPMNProcessStep next    = null;
-
+		int count               = 0;
 
 		do {
 
@@ -117,6 +126,14 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 			if (next != null) {
 
 				current = next;
+
+				info.countStep();
+			}
+
+			// prevent endless loop
+			if (count++ > 10000) {
+				logger.warn("Process step chain is longer than 10000, this is most likely an error. Aborting.");
+				return null;
 			}
 
 		} while (next != null);
@@ -124,4 +141,20 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 		return current;
 	}
 
+	// ----- nested classes -----
+	private class BPMNProcessInfo {
+
+		private int numberOfSteps = 0;
+
+		public BPMNProcessInfo() {
+		}
+
+		public void countStep() {
+			numberOfSteps++;
+		}
+
+		public int getNumberOfSteps() {
+			return numberOfSteps;
+		}
+	}
 }
