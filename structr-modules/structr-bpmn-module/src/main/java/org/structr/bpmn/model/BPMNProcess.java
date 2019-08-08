@@ -82,17 +82,18 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 		return null;
 	}
 
-	public Map<String, Object> getStatus() {
+	public Map<String, Object> getStatus() throws FrameworkException {
 
 		final BPMNProcessInfo info        = new BPMNProcessInfo();
 		final BPMNProcessStep currentStep = findCurrentStep(info);
 		final Map<String, Object> status  = new LinkedHashMap<>();
 
-		status.put("currentStep", currentStep);
-		status.put("status",      currentStep.getStatusText());
-		status.put("finished",    currentStep instanceof BPMNEnd);  // isFinished != process finished
-		status.put("suspended",   currentStep.isSuspended());
-		status.put("steps",       info.getNumberOfSteps());
+		status.put("currentStep",   currentStep);
+		status.put("status",        currentStep.getStatusText());
+		status.put("finished",      currentStep instanceof BPMNEnd);  // isFinished != process finished
+		status.put("suspended",     currentStep.isSuspended());
+		status.put("canBeExecuted", currentStep.canBeExecuted());
+		status.put("steps",         info.getNumberOfSteps());
 
 		return status;
 	}

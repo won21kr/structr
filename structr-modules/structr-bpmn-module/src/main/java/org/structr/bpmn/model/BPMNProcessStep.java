@@ -49,13 +49,17 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 	public abstract T execute(final Map<String, Object> context) throws FrameworkException;
 	public abstract String getStatusText();
 
-	public void next(final T t) throws FrameworkException {
+	public boolean next(final T t) throws FrameworkException {
 
 		final BPMNProcessStep nextStep = getNextStep(t);
 		if (nextStep != null) {
 
 			setProperty(BPMNProcessStep.nextStep, nextStep);
+
+			return true;
 		}
+
+		return false;
 	}
 
 	public BPMNProcessStep getNextStep(final Object data) throws FrameworkException {
@@ -122,5 +126,10 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 				throw new FrameworkException(422, "BPMN process must be started with a BPMNStart instance.");
 			}
 		}
+	}
+
+	public void initializeContext() {
+
+		securityContext.getContextStore().setConstant("test", "Hallo");
 	}
 }

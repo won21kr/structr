@@ -22,7 +22,6 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.structr.api.service.Command;
@@ -118,19 +117,17 @@ public class BPMNService extends Thread implements RunnableService {
 
 				try (final Tx tx = StructrApp.getInstance(securityContext).tx()) {
 
-					final Map<String, Object> context = new LinkedHashMap<>();
-
-					context.put("data", step);
+					step.initializeContext();
 
 					if (step.canBeExecuted()) {
 
-						final Object value = step.execute(context);
-
-						// explicit finish() method, can be overwritten by implementations
-						step.finish();
+						final Object value = step.execute(new LinkedHashMap<>());
 
 						// find and assign next step if possible
-						step.next(value);
+						if (step.next(value)) {
+
+							step.finish();
+						}
 
 					} else {
 

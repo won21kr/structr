@@ -18,15 +18,20 @@
  */
 package org.structr.bpmn.model;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.structr.api.Predicate;
 import org.structr.api.search.SortType;
 import org.structr.common.SecurityContext;
+import org.structr.common.error.FrameworkException;
 import org.structr.core.GraphObject;
 import org.structr.core.property.AbstractReadOnlyProperty;
 
 /**
  */
 public class BPMNStatusProperty extends AbstractReadOnlyProperty<Object> {
+
+	private static final Logger logger = LoggerFactory.getLogger(BPMNStatusProperty.class);
 
 	public BPMNStatusProperty(final String name) {
 		super(name);
@@ -52,7 +57,13 @@ public class BPMNStatusProperty extends AbstractReadOnlyProperty<Object> {
 
 		if (obj instanceof BPMNProcess) {
 
-			return ((BPMNProcess)obj).getStatus();
+			try {
+
+				return ((BPMNProcess)obj).getStatus();
+
+			} catch (FrameworkException ex) {
+				logger.warn("Unable to fetch status from {}: {}", obj.getUuid(), ex.getMessage());
+			}
 		}
 
 		return null;
