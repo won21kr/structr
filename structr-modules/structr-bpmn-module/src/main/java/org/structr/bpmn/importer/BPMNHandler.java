@@ -48,9 +48,11 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 	public static final String EXTRACT          = "extract";
 	public static final String ACTION           = "action";
 	public static final String CONTENT          = "content";
+	public static final String IS_PROCESS       = "isProcess";
 	public static final String ISROOT           = "isRoot";
 	public static final String MULTIPLICITY     = "multiplicity";
 	public static final String DEFAULTS         = "defaults";
+	public static final String MAPPINGS         = "mappings";
 	public static final String PROPERTIES       = "properties";
 	public static final String PROPERTY_NAME    = "propertyName";
 	public static final String ROOT_ELEMENT     = "root";
@@ -108,56 +110,53 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 			final Map<String, Object> properties  = (Map)typeHandler.get(PROPERTIES);
 			final Map<String, String> defaults    = (Map)typeHandler.get(DEFAULTS);
-			final String action                   = (String)typeHandler.get(ACTION);
+			final Object isProcess                = typeHandler.get(IS_PROCESS);
 			final Object isRoot                   = typeHandler.get(ISROOT);
 			final Map<String, String> data        = new LinkedHashMap<>();
 
-			current.isRoot = Boolean.TRUE.equals(isRoot);
+			current.isProcess = Boolean.TRUE.equals(isProcess);
+			current.isRoot    = Boolean.TRUE.equals(isRoot);
 
-			// only process attributes if createNode is selected,
-			if (CREATE_NODE.equals(action)) {
+			for (final Iterator it = element.getAttributes(); it.hasNext();) {
 
-				for (final Iterator it = element.getAttributes(); it.hasNext();) {
+				final Object attr = it.next();
 
-					final Object attr = it.next();
+				if (attr instanceof Attribute) {
 
-					if (attr instanceof Attribute) {
+					final Attribute attribute = (Attribute)attr;
+					final String name         = attribute.getName().toString();
+					String value              = attribute.getValue();
 
-						final Attribute attribute = (Attribute)attr;
-						final String name         = attribute.getName().toString();
-						String value              = attribute.getValue();
+					if (transform != null) {
 
-						if (transform != null) {
+						value = transform.transform(current.getPath(), name, value, data);
+					}
 
-							value = transform.transform(current.getPath(), name, value, data);
-						}
+					if (properties != null && properties.containsKey(name))  {
 
-						if (properties != null && properties.containsKey(name))  {
+						final String mappedName = (String)properties.get(name);
+						data.put(mappedName, value);
 
-							final String mappedName = (String)properties.get(name);
-							data.put(mappedName, value);
+					} else {
 
-						} else {
-
-							data.put(name, value);
-						}
+						data.put(name, value);
 					}
 				}
+			}
 
-				if (defaults != null) {
+			if (defaults != null) {
 
-					defaults.forEach((key, value) -> {
+				defaults.forEach((key, value) -> {
 
-						if (!data.containsKey(key)) {
+					if (!data.containsKey(key)) {
 
-							if (transform != null) {
-								value = transform.transform(current.getPath(), key, value, data);
-							}
-
-							data.put(key, value);
+						if (transform != null) {
+							value = transform.transform(current.getPath(), key, value, data);
 						}
-					});
-				}
+
+						data.put(key, value);
+					}
+				});
 			}
 
 			current.setData(data);
@@ -186,7 +185,13 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 		if (current != null && !text.isIgnorableWhiteSpace() && !text.isWhiteSpace()) {
 
-			current.setText(text.getData());
+			String value = text.getData();
+
+			if (transform != null) {
+				value = transform.transform(current.getPath(), "content", value, new LinkedHashMap<>());
+			}
+
+			current.setText(value);
 		}
 	}
 
@@ -222,7 +227,7 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 					case SET_PROPERTY:
 						handleSetProperty(element, entityData, config);
-						return;
+						break;
 
 					case IGNORE:
 						return;
@@ -326,6 +331,15 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 					System.out.println("Missing property mappings for nested createNode action in " + element.tagName);
 				}
 
+				if (element.isProcess) {
+
+					final List<String> implementsList = new LinkedList<>();
+
+					implementsList.add("https://structr.org/v1.1/definitions/BPMNInactive");
+
+					childData.put("$implements", implementsList);
+				}
+
 				if ("1".equals(config.get(MULTIPLICITY))) {
 
 					if (type != null) {
@@ -425,17 +439,50 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 	 */
 	private void handleSetProperty(final Element element, final Map<String, Object> entityData, final Map<String, Object> config) {
 
-		String propertyName = (String)config.get(PROPERTY_NAME);
-		if (propertyName == null) {
+		Map<String, String> propertyMappings = (Map)config.get(MAPPINGS);
+		if (propertyMappings != null) {
 
-			propertyName = element.tagName;
+			for (final Entry<String, String> entry : propertyMappings.entrySet()) {
+
+				final String key   = entry.getKey();
+				final String value = entry.getValue();
+				final Object data  = element.data.get(value);
+
+				entityData.put(key, data);
+			}
+
+			final Map<String, String> defaults = (Map)config.get(DEFAULTS);
+			if (defaults != null) {
+
+				defaults.forEach((key, value) -> {
+
+					final Object existingValue = entityData.get(key);
+					if (existingValue instanceof String) {
+
+						final String existingString = (String)existingValue;
+						if (StringUtils.isBlank(existingString)) {
+
+							entityData.put(key, value);
+						}
+					}
+				});
+			}
+
+		} else {
+
+			String propertyName = (String)config.get(PROPERTY_NAME);
+			if (propertyName == null) {
+
+				propertyName = element.tagName;
+			}
+
+			if ("$content".equals(propertyName)) {
+
+				propertyName = element.text;
+			}
+
+			entityData.put(propertyName, element.text);
 		}
-
-		if ("$content".equals(propertyName)) {
-			propertyName = element.text;
-		}
-
-		entityData.put(propertyName, element.text);
 	}
 
 	private Map<String, Object> getConfigForElement(final Element element) {
@@ -544,7 +591,7 @@ public class BPMNHandler implements Iterator<Map<String, Object>> {
 
 		private Map<String, String> data = new LinkedHashMap<>();
 		private List<Element> children   = new LinkedList<>();
-		private boolean moveable     = false;
+		private boolean isProcess        = false;
 		private boolean isRoot           = false;
 		private Element parent           = null;
 		private String tagName           = null;

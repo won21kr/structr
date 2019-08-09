@@ -18,34 +18,10 @@
  */
 package org.structr.bpmn.model;
 
-import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.structr.common.error.FrameworkException;
+import org.structr.core.graph.NodeInterface;
 
 /**
- *
+ * Marker interface to indicate that a process is not active yet.
  */
-
-public abstract class BPMNEnd extends BPMNAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(BPMNEnd.class);
-
-	@Override
-	public Object execute(final Map<String, Object> context) {
-
-		try {
-			setProperty(statusText, "Process finished");
-
-		} catch (FrameworkException fex) {
-			logger.warn("Unable to execute action {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
-		}
-
-		return null;
-	}
-
-	@Override
-	public boolean next(final Object t) {
-		return true;
-	}
+public interface BPMNInactive extends NodeInterface {
 }

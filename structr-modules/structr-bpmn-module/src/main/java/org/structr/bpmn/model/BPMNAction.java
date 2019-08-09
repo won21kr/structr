@@ -19,8 +19,10 @@
 package org.structr.bpmn.model;
 
 import java.util.Map;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.structr.common.SecurityContext;
+import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
 
 /**
@@ -28,6 +30,15 @@ import org.structr.common.error.FrameworkException;
  */
 
 public abstract class BPMNAction extends BPMNProcessStep<Object> {
+
+	private static final Logger logger = LoggerFactory.getLogger(BPMNAction.class);
+
+	@Override
+	public void onCreation(final SecurityContext securityContext, final ErrorBuffer errorBuffer) throws FrameworkException {
+
+		// user actions are suspended by default since we are waiting for user interaction
+		setProperty(statusText, "Executing action");
+	}
 
 	// method must be implemented by schema type
 	public Object action(final SecurityContext securityContext, final Map<String, Object> parameters) throws FrameworkException {
@@ -38,12 +49,15 @@ public abstract class BPMNAction extends BPMNProcessStep<Object> {
 	}
 
 	@Override
-	public Object execute(final Map<String, Object> context) throws FrameworkException {
-		return action(securityContext, context);
-	}
+	public Object execute(final Map<String, Object> context) {
 
-	@Override
-	public String getStatusText() {
-		return "Executing action";
+		try {
+			return action(securityContext, context);
+
+		} catch (FrameworkException fex) {
+			logger.warn("Unable to execute action {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
+		}
+
+		return null;
 	}
 }

@@ -34,6 +34,9 @@ public interface JsonType extends Comparable<JsonType> {
 	String getName();
 	JsonType setName(final String name);
 
+	String getDescription();
+	JsonType setDescription(final String description);
+
 	String getCategory();
 	JsonType setCategory(final String category);
 

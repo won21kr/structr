@@ -19,8 +19,11 @@
 package org.structr.bpmn.model;
 
 import java.util.Map;
+import org.junit.platform.commons.util.StringUtils;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.structr.common.SecurityContext;
+import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
 import org.structr.core.app.StructrApp;
 import org.structr.core.property.PropertyKey;
@@ -31,50 +34,74 @@ import org.structr.core.property.PropertyKey;
 
 public abstract class BPMNCondition extends BPMNProcessStep<Object> {
 
+	private static final Logger logger = LoggerFactory.getLogger(BPMNCondition.class);
+
+	@Override
+	public void onCreation(final SecurityContext securityContext, final ErrorBuffer errorBuffer) throws FrameworkException {
+
+		// user actions are suspended by default since we are waiting for user interaction
+		setProperty(statusText, "Executing condition action");
+	}
+
 	// method must be implemented by schema type
 	public Object action(final SecurityContext securityContext, final Map<String, Object> parameters) throws FrameworkException {
 
-		LoggerFactory.getLogger(BPMNAction.class).info("BPMNCondition {}: no action specified.", getClass().getSimpleName());
+		logger.info("BPMNCondition {}: no action specified.", getClass().getSimpleName());
 
 		return null;
 	}
 
 	@Override
-	public Object execute(final Map<String, Object> context) throws FrameworkException {
-		return action(securityContext, context);
-	}
+	public Object execute(final Map<String, Object> context) {
 
-	@Override
-	public BPMNProcessStep getNextStep(final Object param) throws FrameworkException {
+		try {
+			return action(securityContext, context);
 
-		if (param != null) {
-
-			final String resultName   = param.toString();
-			final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), resultName, false);
-
-			if (nextKey != null) {
-
-				final Class<BPMNProcessStep> nextType = nextKey.relatedType();
-				if (nextType != null) {
-
-					return StructrApp.getInstance().create(nextType);
-				}
-
-			} else {
-
-				// log error, condition result must have relationship counterpart
-			}
-
-		} else {
-
-			// log error, condition action must return something
+		} catch (FrameworkException fex) {
+			logger.warn("Unable to execute condition {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
 		}
 
 		return null;
 	}
 
 	@Override
-	public String getStatusText() {
-		return "Waiting on condition";
+	public BPMNProcessStep getNextStep(final Object param) {
+
+		try {
+
+			if (param != null) {
+
+				final String resultName   = param.toString();
+				if (StringUtils.isNotBlank(resultName)) {
+
+					final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), resultName, false);
+
+					if (nextKey != null) {
+
+						final Class<BPMNProcessStep> nextType = nextKey.relatedType();
+						if (nextType != null) {
+
+							return StructrApp.getInstance().create(nextType);
+						}
+
+					} else {
+
+						setProperty(statusText, "No outgoing connection for '" + resultName + "'");
+					}
+				} else {
+
+					setProperty(statusText, "Missing return value of action() method");
+				}
+
+			} else {
+
+				setProperty(statusText, "Missing return value of action() method");
+			}
+
+		} catch (FrameworkException fex) {
+			logger.warn("Unable to determine next step for {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
+		}
+
+		return null;
 	}
 }

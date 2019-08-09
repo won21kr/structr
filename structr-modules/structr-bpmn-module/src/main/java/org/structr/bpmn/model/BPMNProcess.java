@@ -49,34 +49,43 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 	);
 
 	@Override
-	public Object execute(final Map<String, Object> context) throws FrameworkException {
+	public Object execute(final Map<String, Object> context) {
 		return null;
 	}
 
 	@Override
 	public void onCreation(final SecurityContext securityContext, final ErrorBuffer errorBuffer) throws FrameworkException {
 
+		super.onCreation(securityContext, errorBuffer);
+
 		// allow creation of process step from here
 		securityContext.setAttribute("BPMNService", true);
 
 		// finish this step (next will be created below)
 		setProperty(isFinished, true);
+		setProperty(statusText, "Process not started yet");
 
 		// create next step
 		next(null);
 	}
 
 	@Override
-	public BPMNProcessStep getNextStep(final Object data) throws FrameworkException {
+	public BPMNProcessStep getNextStep(final Object data) {
 
-		final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), "next", false);
-		if (nextKey != null) {
+		try {
 
-			final Class<BPMNProcessStep> nextType = nextKey.relatedType();
-			if (nextType != null) {
+			final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), "next", false);
+			if (nextKey != null) {
 
-				return StructrApp.getInstance().create(nextType, getDataForNextStep(nextType));
+				final Class<BPMNProcessStep> nextType = nextKey.relatedType();
+				if (nextType != null) {
+
+					return StructrApp.getInstance().create(nextType, getDataForNextStep(nextType));
+				}
 			}
+
+		} catch (FrameworkException fex) {
+			logger.warn("Unable to determine next step for {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
 		}
 
 		return null;
@@ -96,11 +105,6 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 		status.put("steps",         info.getNumberOfSteps());
 
 		return status;
-	}
-
-	@Override
-	public String getStatusText() {
-		return "Process not started yet";
 	}
 
 	// ----- private methods -----

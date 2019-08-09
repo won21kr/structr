@@ -21,6 +21,9 @@ package org.structr.bpmn.model;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.structr.common.SecurityContext;
 import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
@@ -32,6 +35,7 @@ import org.structr.core.property.ISO8601DateProperty;
 import org.structr.core.property.Property;
 import org.structr.core.property.PropertyKey;
 import org.structr.core.property.StartNode;
+import org.structr.core.property.StringProperty;
 
 /**
  *
@@ -39,39 +43,63 @@ import org.structr.core.property.StartNode;
 
 public abstract class BPMNProcessStep<T> extends AbstractNode {
 
+	private static final Logger logger                         = LoggerFactory.getLogger(BPMNProcessStep.class);
 	public static final Property<BPMNProcessStep> nextStep     = new EndNode<>("nextStep", BPMNProcessStepNext.class);
 	public static final Property<BPMNProcessStep> previousStep = new StartNode<>("previousStep", BPMNProcessStepNext.class);
 	public static final Property<Boolean> isFinished           = new BooleanProperty("isFinished").indexed();
 	public static final Property<Boolean> isManual             = new BooleanProperty("isManual").indexed();
 	public static final Property<Boolean> isSuspended          = new BooleanProperty("isSuspended").indexed().hint("This flag can be used to manually suspend a process.");
 	public static final Property<Date> dueDate                 = new ISO8601DateProperty("dueDate").indexed();
+	public static final Property<String> statusText            = new StringProperty("statusText");
 
-	public abstract T execute(final Map<String, Object> context) throws FrameworkException;
-	public abstract String getStatusText();
+	public abstract T execute(final Map<String, Object> context);
 
-	public boolean next(final T t) throws FrameworkException {
+	public String getStatusText() {
 
-		final BPMNProcessStep nextStep = getNextStep(t);
-		if (nextStep != null) {
+		final String statusFromDatabase = getProperty(statusText);
+		if (statusFromDatabase != null) {
 
-			setProperty(BPMNProcessStep.nextStep, nextStep);
+			return statusFromDatabase;
+		}
 
-			return true;
+		return "Unknown";
+	}
+
+	public boolean next(final T t) {
+
+		try {
+
+			final BPMNProcessStep nextStep = getNextStep(t);
+			if (nextStep != null) {
+
+				setProperty(BPMNProcessStep.nextStep, nextStep);
+
+				return true;
+			}
+
+		} catch (FrameworkException fex) {
+			logger.warn("Unable to assign next step for {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
 		}
 
 		return false;
 	}
 
-	public BPMNProcessStep getNextStep(final Object data) throws FrameworkException {
+	public BPMNProcessStep getNextStep(final Object data) {
 
-		final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), "next", false);
-		if (nextKey != null) {
+		try {
 
-			final Class<BPMNProcessStep> nextType = nextKey.relatedType();
-			if (nextType != null) {
+			final PropertyKey nextKey = StructrApp.getConfiguration().getPropertyKeyForJSONName(getClass(), "next", false);
+			if (nextKey != null) {
 
-				return StructrApp.getInstance(securityContext).create(nextType);
+				final Class<BPMNProcessStep> nextType = nextKey.relatedType();
+				if (nextType != null) {
+
+					return StructrApp.getInstance(securityContext).create(nextType);
+				}
 			}
+
+		} catch (FrameworkException fex) {
+			logger.warn("Unable to determine next step for {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
 		}
 
 		return null;
@@ -85,27 +113,49 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 		return getProperty(isFinished);
 	}
 
-	public void finish() throws FrameworkException {
-		setProperty(isFinished, true);
+	public void finish() {
+
+		try {
+
+			setProperty(isFinished, true);
+
+		} catch (FrameworkException fex) {
+			logger.warn("Unable to finish step for {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
+		}
 	}
 
-	public void suspend() throws FrameworkException {
-		setProperty(isSuspended, true);
+	public void suspend() {
+
+		try {
+
+			setProperty(isSuspended, true);
+
+		} catch (FrameworkException fex) {
+			logger.warn("Unable to suspend step for {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
+		}
 	}
 
 	public Object canBeExecuted(final SecurityContext securityContext, final Map<String, Object> parameters) throws FrameworkException {
 		return true;
 	}
 
-	public boolean canBeExecuted() throws FrameworkException {
+	public boolean canBeExecuted() {
 
-		final Object value = canBeExecuted(securityContext, new LinkedHashMap<>());
-		if (value != null && value instanceof Boolean) {
+		try {
 
-			return (Boolean)value;
+			final Object value = canBeExecuted(securityContext, new LinkedHashMap<>());
+			if (value != null && value instanceof Boolean) {
+
+				return (Boolean)value;
+			}
+
+			logger.warn("Return value of canBeExecuted() method must be of type boolean");
+
+		} catch (FrameworkException fex) {
+			logger.warn("Unable to execute canBeExecuted() method for {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
 		}
 
-		throw new FrameworkException(422, "Return value of canBeExecuted() method must be of type boolean");
+		return false;
 	}
 
 	@Override
@@ -113,7 +163,11 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 
 		if (this instanceof BPMNProcess) {
 
-			// BPMNStart can be created by anyone, do nothing
+			if (this instanceof BPMNInactive) {
+
+				throw new FrameworkException(422, "BPMN process is not active yet.");
+			}
+
 
 		} else {
 
@@ -130,6 +184,43 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 
 	public void initializeContext() {
 
-		securityContext.getContextStore().setConstant("test", "Hallo");
+		// This method iterates over all steps from this one to the start step and
+		// collects all property values that are registered in the BPMN view.
+
+		final Map<String, Object> data = new LinkedHashMap<>();
+		BPMNProcessStep current        = this;
+		BPMNProcessStep prev           = null;
+		int count                      = 0;
+
+		do {
+
+			prev = current.getProperty(previousStep);
+			if (prev != null) {
+
+				current = prev;
+			}
+
+			// prevent endless loop
+			if (count++ > 10000) {
+				logger.warn("Process step chain is longer than 10000, this is most likely an error. Aborting.");
+				break;
+			}
+
+			if (current != null) {
+
+				// collect properties from BPMN view
+				final Set<PropertyKey> bpmnView = StructrApp.getConfiguration().getPropertySet(current.getClass(), "bpmn");
+				if (bpmnView != null) {
+
+					for (final PropertyKey key : bpmnView) {
+
+						data.put(key.jsonName(), current.getProperty(key));
+					}
+				}
+			}
+
+		} while (prev != null);
+
+		securityContext.getContextStore().setConstant("process", data);
 	}
 }

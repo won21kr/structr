@@ -27,8 +27,10 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.codehaus.plexus.util.StringUtils;
@@ -61,7 +63,7 @@ public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 	}
 
 	public void setName(String name) {
-		this.name = name;
+		this.name = name.trim();
 	}
 
 	public String getXml() {
@@ -109,7 +111,7 @@ public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 				data.put("id", DigestUtils.md5Hex(name));
 				data.put("methods", new LinkedList<>());
 
-				final String source            = gson.toJson(data);
+				final String source = gson.toJson(data);
 
 				if (testing) {
 
@@ -131,6 +133,7 @@ public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 						// apply new schema
 						StructrSchema.extendDatabaseSchema(app, schema);
 
+
 						tx.success();
 					}
 				}
@@ -149,22 +152,28 @@ public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 	public String transform(final String path, final String name, final String value, final Map<String, String> data) {
 
 		if ("sourceRef".equals(name) || "targetRef".equals(name)) {
-			return "#/definitions/" + value;
+			return "#/definitions/" + getCategory() + "_" + value;
 		}
 
 		if ("category".equals(name)) {
 			return getCategory();
 		}
 
-		if ("targetName".equals(name)) {
-			return data.get("rel");
+		if ("id".equals(name) && value != null) {
+
+			return getCategory() + "_" + value;
+		}
+
+		if ("content".equals(name) && StringUtils.isNotBlank(value)) {
+
+			return getCategory() + "_" + value;
 		}
 
 		return value;
 	}
 
 	private String getCategory() {
-		return "BPMN/" + this.name;
+		return this.name;
 	}
 
 	@Override
@@ -172,6 +181,7 @@ public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 
 		final Map<String, String> replacements = new LinkedHashMap<>();
 		final Map<String, Object> data         = reference.getData();
+		final List<String> bpmnView            = new LinkedList<>();
 		final String sourceType                = reference.getType();
 		final Map<String, Object> properties   = (Map)data.get("properties");
 
@@ -256,7 +266,27 @@ public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 				// cleanup
 				property.remove("displayName");
 				property.remove("name");
+
+				bpmnView.add(value);
 			}
+		}
+
+		Map<String, Object> views = (Map)data.get("views");
+		if (views == null) {
+
+			views = new TreeMap<>();
+			data.put("views", views);
+		}
+
+		// add bpmn view
+		final List<String> view = (List)views.get("bpmn");
+		if (view != null) {
+
+			view.addAll(bpmnView);
+
+		} else {
+
+			views.put("bpmn", bpmnView);
 		}
 	}
 
@@ -308,7 +338,7 @@ public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 
 		importer.setTesting(true);
 
-		importer.setName("test1.bpmn");
+		importer.setName("UserRegistration");
 
 		try (final InputStream is = new FileInputStream("/home/chrisi/camunda/test1.bpmn")) {
 

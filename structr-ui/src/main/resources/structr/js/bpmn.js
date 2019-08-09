@@ -151,34 +151,40 @@ var _BPMN = {
 						id: 'running',
 						text: 'Manage Running Processes',
 						children: false,
-						icon: _Icons.exec_icon,
-						path: '/'
+						icon: _Icons.exec_icon
 					},
 					{
 						id: 'root',
-						text: '/',
-						children: true,
-						icon: _Icons.structr_logo_small,
-						path: '/',
-						state: {
-							opened: true,
-							selected: true
-						}
+						text: 'BPMN Processes',
+						children: [
+							{
+								id: 'deployed',
+								text: 'Deployed but not yet active',
+								children: true
+							},
+							{
+								id: 'active',
+								text: 'Active',
+								children: true
+							}
+						],
+						icon: _Icons.structr_logo_small
 					}
 				];
 
 				callback(defaultDiagramEntries);
 				break;
 
-			case 'root':
-				callback([]);
+			case 'deployed':
+				_BPMN.treeAddProcesses(false, callback);
 				break;
 
-			case 'running':
-				callback([]);
+			case 'active':
+				_BPMN.treeAddProcesses(true, callback);
 				break;
 
 			default:
+				_BPMN.treeAddSteps(obj.id, callback);
 				break;
 		}
 
@@ -189,6 +195,10 @@ var _BPMN = {
 
 			case 'running':
 				_BPMN.showManageProcesses();
+				break;
+
+			default:
+				_BPMN.showStepDetails(data.node.id);
 				break;
 		}
 	},
@@ -225,7 +235,7 @@ var _BPMN = {
 					});
 				});
 
-			}, true, 'public');
+			}, true);
 
 
 			//query: function(type, pageSize, page, sort, order, properties, callback, exact, view, customView) {
@@ -240,6 +250,51 @@ var _BPMN = {
 
 			}, true, 'public');
 
+
+		});
+
+	},
+	showStepDetails: function(id) {
+
+		Command.get(id, undefined, function(step) {
+
+			let action        = '';
+			let canBeExecuted = '';
+
+			step.schemaMethods.forEach(m => {
+				switch (m.name) {
+					case 'action':
+						action = m.source;
+						break;
+
+					case 'canBeExecuted':
+						canBeExecuted = m.source;
+				}
+			});
+
+			Structr.fetchHtmlTemplate('bpmn/details', { step: step, action: action, canBeExecuted: canBeExecuted }, function (html) {
+
+				$('#bpmn-contents').empty();
+				$('#bpmn-contents').append(html);
+
+				CodeMirror.fromTextArea(document.getElementById('action-' + step.id), {
+					mode: 'javascript',
+					lineNumbers: true,
+					lineWrapping: false,
+					indentUnit: 4,
+					tabSize:4,
+					indentWithTabs: true
+				}).setSize(null, 150);
+
+				CodeMirror.fromTextArea(document.getElementById('exec-' + step.id), {
+					mode: 'javascript',
+					lineNumbers: true,
+					lineWrapping: false,
+					indentUnit: 4,
+					tabSize:4,
+					indentWithTabs: true
+				}).setSize(null, 150);
+			});
 
 		});
 
@@ -299,5 +354,163 @@ var _BPMN = {
 		Object.keys(_BPMN.timeouts).forEach(function(key) {
 			window.clearInterval(_BPMN.timeouts[key]);
 		});
+	},
+	treeAddProcesses: function(active, callback) {
+
+		let searchData = {
+			extendsClass: 'org.structr.bpmn.model.BPMNProcess',
+			implementsInterfaces: active ? '' : 'org.structr.bpmn.model.BPMNInactive'
+		};
+
+		Command.query('SchemaNode', 1000, 1, 'name', 'asc', searchData, function(result) {
+
+			let processes = [];
+
+			result.forEach(p => {
+
+				processes.push({
+					id: p.category,
+					text: p.category || p.name,
+					children: true
+				});
+			});
+
+			callback(processes);
+
+		}, true);
+	},
+	treeAddSteps: function(id, callback) {
+
+	    //query: function(type, pageSize, page, sort, order, properties, callback, exact, view, customView) {
+		Command.query('SchemaNode', 1000, 1, 'description', 'asc', { category: id }, function(result) {
+
+			let index = {};
+			let steps = [];
+
+			result.forEach(s => {
+				index[s.id] = s;
+			});
+
+			result.forEach(p => {
+
+				let level = _BPMN.determineHierarchy(index, p);
+
+				steps.push({
+					id: p.id,
+					text: level + '. ' + (p.description || p.name),
+					level: level
+				});
+			});
+
+			steps.sort((a, b) => {
+				if (a.level < b.level) { return -1; };
+				if (a.level > b.level) { return  1; };
+				return 0;
+			});
+
+			callback(steps);
+
+
+		}, true, 'ui');
+	},
+	determineHierarchy: function(index, step) {
+
+		let current = step;
+		let level   = 1;
+
+		while (current && current.relatedFrom && current.relatedFrom.length && level < 100) {
+
+			let id = current.relatedFrom[0].sourceId;
+			current = index[id];
+			level++;
+		}
+
+		return level;
+	},
+	showProcess: function(id) {
+
+	    //query: function(type, pageSize, page, sort, order, properties, callback, exact, view, customView) {
+		Command.query('SchemaNode', 1000, 1, 'description', 'asc', { category: id }, function(result) {
+
+			let index = {};
+			let steps = [];
+
+			result.forEach(s => {
+				index[s.id] = s;
+			});
+
+			result.forEach(s => {
+
+				let level = _BPMN.determineHierarchy(index, s);
+
+				s.level = level;
+
+				steps.push(s);
+
+			});
+
+			steps.sort((a, b) => {
+				if (a.level < b.level) { return -1; };
+				if (a.level > b.level) { return  1; };
+				return 0;
+			});
+
+			let container = $('#bpmn-contents');
+
+			Structr.fetchHtmlTemplate('bpmn/steps', { }, function (html) {
+
+				container.empty();
+				container.append(html);
+
+				stepContainer = $('#bpmn-process-step-list');
+
+				steps.forEach(s => {
+
+					let action        = '';
+					let canBeExecuted = '';
+
+					s.schemaMethods.forEach(m => {
+						switch (m.name) {
+							case 'action':
+								action = m.source;
+								break;
+
+							case 'canBeExecuted':
+								canBeExecuted = m.source;
+						}
+					});
+
+					Structr.fetchHtmlTemplate('bpmn/process-step-table-row', { step: s, action: action, canBeExecuted: canBeExecuted }, function (html) {
+
+						stepContainer.append(html);
+
+						CodeMirror.fromTextArea(document.getElementById('action-' + s.id), {
+							mode: 'javascript',
+							lineNumbers: true,
+							lineWrapping: false,
+							indentUnit: 4,
+							tabSize:4,
+							indentWithTabs: true
+						}).setSize(null, 100);
+
+						CodeMirror.fromTextArea(document.getElementById('exec-' + s.id), {
+							mode: 'javascript',
+							lineNumbers: true,
+							lineWrapping: false,
+							indentUnit: 4,
+							tabSize:4,
+							indentWithTabs: true
+						}).setSize(null, 100);
+
+						s.schemaProperties.forEach(p => {
+
+							$('#properties-' + s.id).append(p.name + ': ' + p.propertyType);
+						});
+
+					});
+				});
+			});
+
+		}, true, 'ui');
 	}
 }

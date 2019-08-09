@@ -8,15 +8,38 @@
     ],
     "properties": [
       {
-        "label": "Script Action",
+        "label": "Action script",
+	"description": "Script code that runs when this process step is executed by the process engine. The current process and all its data objects are available under the keyword `process`, e.g. `process.myDocument`.",
         "type": "Text",
         "value": "",
         "binding": {
           "type": "camunda:property",
           "name": "action"
         }
+      },
+      {
+        "label": "Execution condition",
+        "description": "Script condition that indicates whether this process step can be run. Return `false` here to suspend the step until it is ready to run, return `true` to allow step to run. The current process and all its data objects are available under the keyword `process`, e.g. `process.myDocument`.",
+        "type": "Text",
+        "value": "true",
+        "binding": {
+          "type": "camunda:property",
+          "name": "canBeExecuted"
+        }
       }
-    ]
+    ],
+    "entriesVisible": {
+      "_all": true,
+      "general": true,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "documentation": false
+    }
   },
   {
     "name": "Structr Condition",
@@ -27,7 +50,8 @@
     ],
     "properties": [
       {
-        "label": "Script Action",
+        "label": "Gateway condition",
+        "description": "Script condition that determines which outgoing connection is used. Return the name of the desired connection branch here. The current process and all its data objects are available under the `process` keyword, e.g. `process.myDocument`.",
         "type": "Text",
         "value": "",
         "binding": {
@@ -35,7 +59,52 @@
           "name": "action"
         }
       }
-    ]
+    ],
+    "entriesVisible": {
+      "_all": true,
+      "general": true,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "documentation": false
+    }
+  },
+  {
+    "name": "Structr Connection",
+    "id": "org.structr.bpmn.SequenceFlow",
+    "isDefault": true,
+    "appliesTo": [
+      "bpmn:SequenceFlow"
+    ],
+    "properties": [
+      {
+        "label": "Value",
+        "type": "String",
+        "description": "The condition value that activates this connection.",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "value"
+        }
+      }
+    ],
+    "entriesVisible": {
+      "_all": true,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "documentation": false,
+      "details": false,
+      "condition": false
+    }
   },
   {
     "name": "Structr Relationship",
@@ -71,12 +140,22 @@
           "name": "relType"
         }
       }
-    ]
+    ],
+    "entriesVisible": {
+      "_all": false,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "documentation": false
+    }
   },
   {
     "name": "Structr Property",
     "id": "org.structr.bpmn.Property",
-    "isDefault": true,
     "appliesTo": [
       "bpmn:DataObjectReference"
     ],
@@ -108,6 +187,17 @@
           "name": "required"
         }
       }
-    ]
+    ],
+    "entriesVisible": {
+      "_all": false,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "documentation": false
+    }
   }
 ]

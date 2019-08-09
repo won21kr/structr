@@ -13,8 +13,10 @@
   "/bpmn:definitions/bpmn:process/bpmn:startEvent": {
     "action": "createNode",
     "multiplicity": "1",
+    "isProcess": true,
     "properties": {
       "id": "name",
+      "name": "description",
       "category": "category",
       "$extends": "$extends"
     },
@@ -28,6 +30,7 @@
     "multiplicity": "1",
     "properties": {
       "id": "name",
+      "name": "description",
       "category": "category",
       "$extends": "$extends"
     },
@@ -41,6 +44,7 @@
     "multiplicity": "1",
     "properties": {
       "id": "name",
+      "name": "description",
       "category": "category",
       "$extends": "$extends"
     },
@@ -125,10 +129,25 @@
     "multiplicity": "1",
     "properties": {
       "id": "name",
-      "name": "rel",
+      "rel": "rel",
+      "name": "description",
       "sourceRef": "$source",
       "targetRef": "$target",
       "targetName": "targetName"
+    },
+    "defaults": {
+      "rel": "next",
+      "targetName": "next"
+    }
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:sequenceFlow/bpmn:extensionElements/camunda:properties": {
+    "action": "setProperty"
+  },
+  "/bpmn:definitions/bpmn:process/bpmn:sequenceFlow/bpmn:extensionElements/camunda:properties/camunda:property": {
+    "action": "setProperty",
+    "mappings": {
+      "rel": "value",
+      "targetName": "value"
     },
     "defaults": {
       "rel": "next",

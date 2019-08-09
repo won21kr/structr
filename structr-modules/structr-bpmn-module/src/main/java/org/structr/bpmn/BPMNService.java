@@ -127,6 +127,13 @@ public class BPMNService extends Thread implements RunnableService {
 						if (step.next(value)) {
 
 							step.finish();
+
+						} else {
+
+							// don't start this step again without user interaction
+							step.suspend();
+
+							logger.info("Step {} ({}) suspended because next step could not be determined.", step, step.getClass().getSimpleName());
 						}
 
 					} else {
