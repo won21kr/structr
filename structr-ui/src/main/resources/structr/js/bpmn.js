@@ -155,17 +155,19 @@ var _BPMN = {
 					},
 					{
 						id: 'root',
-						text: 'BPMN Processes',
+						text: 'BPMN Process Definitions',
 						children: [
 							{
 								id: 'deployed',
-								text: 'Deployed but not yet active',
-								children: true
+								text: 'Disabled Process Definitions',
+								children: true,
+								icon: _Icons.exec_blue_icon
 							},
 							{
 								id: 'active',
-								text: 'Active',
-								children: true
+								text: 'Enabled Process Definitions',
+								children: true,
+								icon: _Icons.exec_icon
 							}
 						],
 						icon: _Icons.structr_logo_small
@@ -189,7 +191,12 @@ var _BPMN = {
 		}
 
 	},
+	refreshTree: function() {
+		_TreeHelper.refreshTree(bpmnTree);
+	},
 	handleTreeClick: function(event, data) {
+
+		console.log(data.node);
 
 		switch (data.node.id) {
 
@@ -198,7 +205,16 @@ var _BPMN = {
 				break;
 
 			default:
-				_BPMN.showStepDetails(data.node.id);
+				if (data.node.data && data.node.data.type) {
+					switch (data.node.data.type) {
+						case 'process':
+							_BPMN.showProcessDetails(data.node.data.id);
+							break;
+						case 'step':
+							_BPMN.showStepDetails(data.node.id);
+							break;
+					}
+				}
 				break;
 		}
 	},
@@ -216,7 +232,7 @@ var _BPMN = {
 
 				result.forEach(function(p) {
 
-					Structr.fetchHtmlTemplate('bpmn/available-process-table-row', { process: p, status: p.status }, function (html) {
+					Structr.fetchHtmlTemplate('bpmn/available-process-table-row', { process: p, info: p.info }, function (html) {
 
 						$(table).append(html);
 
@@ -272,7 +288,7 @@ var _BPMN = {
 				}
 			});
 
-			Structr.fetchHtmlTemplate('bpmn/details', { step: step, action: action, canBeExecuted: canBeExecuted }, function (html) {
+			Structr.fetchHtmlTemplate('bpmn/step-details', { step: step, action: action, canBeExecuted: canBeExecuted }, function (html) {
 
 				$('#bpmn-contents').empty();
 				$('#bpmn-contents').append(html);
@@ -299,16 +315,96 @@ var _BPMN = {
 		});
 
 	},
+	showProcessDetails: function(id) {
+
+		Command.get(id, undefined, function(process) {
+
+			console.log(process);
+
+			Structr.fetchHtmlTemplate('bpmn/process-details', { process: process }, function (html) {
+
+				$('#bpmn-contents').empty();
+				$('#bpmn-contents').append(html);
+
+				if (process.implementsInterfaces === 'org.structr.bpmn.model.BPMNInactive') {
+
+					Structr.fetchHtmlTemplate('code/action-button', { suffix: 'activate', icon: 'plus-circle', name: 'Enable this process' }, function (html) {
+
+						$('#process-contents').append(html);
+
+						$('#action-button-activate').on('click', function() {
+
+							Structr.confirmation('<h3>Really enable this process?</h3><p>The process will be made available and is ready to use.</p>',
+								function() {
+									Structr.showLoadingMessage('Schema is compiling..', 'Please wait.', 200);
+									Command.setProperties(id, { implementsInterfaces: null }, function() {
+										_BPMN.refreshTree();
+										Structr.hideLoadingMessage();
+									});
+								}
+							);
+
+						});
+
+					});
+
+				} else {
+
+					Structr.fetchHtmlTemplate('code/action-button', { suffix: 'deactivate', icon: 'minus-circle', name: 'Disable this process' }, function (html) {
+
+						$('#process-contents').append(html);
+
+						$('#action-button-deactivate').on('click', function() {
+
+							Structr.confirmation('<h3>Really disable this process?</h3><p>No new process instances can be created.</p>',
+								function() {
+									Structr.showLoadingMessage('Schema is compiling.', 'Please wait..', 200);
+									Command.setProperties(id, { implementsInterfaces: 'org.structr.bpmn.model.BPMNInactive' }, function() {
+										_BPMN.refreshTree();
+										Structr.hideLoadingMessage();
+									});
+								}
+							);
+
+						});
+
+					});
+				}
+
+				Structr.fetchHtmlTemplate('code/action-button', { suffix: 'delete', icon: 'remove red', name: 'Delete this process' }, function (html) {
+
+					$('#process-contents').append(html);
+
+					$('#action-button-delete').on('click', function() {
+
+						Structr.confirmation('<h3>Really delete process?</h3><p>blah</p>',
+							function() {
+								Structr.showLoadingMessage('Schema is compiling..', 'Please wait.', 200);
+								Command.deleteNode(id, false, function() {
+									_BPMN.refreshTree();
+									Structr.hideLoadingMessage();
+								});
+							}
+						);
+
+					});
+				});
+
+			}, 'ui');
+
+		});
+
+	},
 	updateRow: function(id) {
 
-		Command.get(id, "id,type,status", function(p) {
+		Command.get(id, "id,type,info", function(p) {
 
 			_BPMN.appendRow($('#row-' + id), p, true);
 		});
 	},
 	appendRow: function(container, p, replace) {
 
-		Structr.fetchHtmlTemplate('bpmn/running-process-table-row', { process: p, status: p.status }, function (html) {
+		Structr.fetchHtmlTemplate('bpmn/running-process-table-row', { process: p, info: p.info }, function (html) {
 
 			if (replace) {
 				container.replaceWith(html);
@@ -316,9 +412,9 @@ var _BPMN = {
 				container.append(html);
 			}
 
-			if (p && p.status && p.status.currentStep && !p.status.finished && p.status.suspended) {
+			if (p && p.info && p.info.currentStep && !p.info.finished && p.info.suspended) {
 
-				let stepId = p.status.currentStep.id;
+				let stepId = p.info.currentStep.id;
 
 				$('#actions-' + stepId).append('<button class="action button" id="finish-' + stepId + '">' + _Icons.getHtmlForIcon(_Icons.exec_icon) + ' Next</button>');
 				$('#finish-' + stepId).on('click', function() {
@@ -371,7 +467,12 @@ var _BPMN = {
 				processes.push({
 					id: p.category,
 					text: p.category || p.name,
-					children: true
+					children: true,
+					icon: _Icons.folder_icon,
+					data: {
+						type: 'process',
+						id: p.id
+					}
 				});
 			});
 
@@ -398,7 +499,11 @@ var _BPMN = {
 				steps.push({
 					id: p.id,
 					text: level + '. ' + (p.description || p.name),
-					level: level
+					level: level,
+					icon: _Icons.brick_icon,
+					data: {
+						type: 'step'
+					}
 				});
 			});
 

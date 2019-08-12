@@ -28,6 +28,7 @@ import org.structr.common.View;
 import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
 import org.structr.core.app.StructrApp;
+import org.structr.core.entity.SchemaNode;
 import org.structr.core.property.Property;
 import org.structr.core.property.PropertyKey;
 import org.structr.core.property.PropertyMap;
@@ -41,11 +42,11 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 
 	private static final Logger logger = LoggerFactory.getLogger(BPMNProcess.class);
 
-	public static final Property<Object> status = new BPMNStatusProperty("status");
-	public static final Property<Object> data   = new BPMNDataProperty("data");
+	public static final Property<Object> info = new BPMNInfoProperty("info");
+	public static final Property<Object> data = new BPMNDataProperty("data");
 
 	public static final View publicView = new View(BPMNProcess.class, PropertyView.Public,
-		status
+		info
 	);
 
 	@Override
@@ -96,13 +97,20 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 		final BPMNProcessInfo info        = new BPMNProcessInfo();
 		final BPMNProcessStep currentStep = findCurrentStep(info);
 		final Map<String, Object> status  = new LinkedHashMap<>();
+		final Map<String, Object> schema  = new LinkedHashMap<>();
+		final Map<String, Object> values  = new LinkedHashMap<>();
+
+		currentStep.collectProcessData(schema, values);
 
 		status.put("currentStep",   currentStep);
+		status.put("type",          getProcessName());
 		status.put("status",        currentStep.getStatusText());
 		status.put("finished",      currentStep instanceof BPMNEnd);  // isFinished != process finished
 		status.put("suspended",     currentStep.isSuspended());
 		status.put("canBeExecuted", currentStep.canBeExecuted());
 		status.put("steps",         info.getNumberOfSteps());
+		status.put("schema",        schema);
+		status.put("values",        values);
 
 		return status;
 	}
@@ -144,6 +152,25 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 		} while (next != null);
 
 		return current;
+	}
+
+	private String getProcessName() throws FrameworkException {
+
+		final SchemaNode schemaNode = StructrApp.getInstance().nodeQuery(SchemaNode.class).andName(getClass().getSimpleName()).getFirst();
+		if (schemaNode != null) {
+
+			final String processName = schemaNode.getProperty(SchemaNode.category);
+			if (processName != null) {
+
+				return processName;
+
+			} else {
+
+				return "Unknown, schema type does not contain process name.";
+			}
+		}
+
+		return "Unknown, schema type does not exist.";
 	}
 
 	// ----- nested classes -----

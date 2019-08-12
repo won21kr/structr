@@ -36,6 +36,7 @@ import org.structr.core.property.Property;
 import org.structr.core.property.PropertyKey;
 import org.structr.core.property.StartNode;
 import org.structr.core.property.StringProperty;
+import org.structr.schema.SchemaHelper;
 
 /**
  *
@@ -165,7 +166,7 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 
 			if (this instanceof BPMNInactive) {
 
-				throw new FrameworkException(422, "BPMN process is not active yet.");
+				throw new FrameworkException(422, "BPMN process is disabled.");
 			}
 
 
@@ -182,15 +183,15 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 		}
 	}
 
-	public void initializeContext() {
+	public void collectProcessData(final Map<String, Object> schema, final Map<String, Object> values) {
+
 
 		// This method iterates over all steps from this one to the start step and
 		// collects all property values that are registered in the BPMN view.
 
-		final Map<String, Object> data = new LinkedHashMap<>();
-		BPMNProcessStep current        = this;
-		BPMNProcessStep prev           = null;
-		int count                      = 0;
+		BPMNProcessStep current = this;
+		BPMNProcessStep prev    = null;
+		int count               = 0;
 
 		do {
 
@@ -214,13 +215,30 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 
 					for (final PropertyKey key : bpmnView) {
 
-						data.put(key.jsonName(), current.getProperty(key));
+						// collect values only if map is not null
+						if (values != null) {
+							values.put(key.jsonName(), current.getProperty(key));
+						}
+
+						// collect schema data only if map is not null
+						if (schema != null) {
+							schema.put(key.jsonName(), SchemaHelper.getPropertyInfo(securityContext, key));
+						}
 					}
 				}
 			}
 
 		} while (prev != null);
+	}
 
-		securityContext.getContextStore().setConstant("process", data);
+	public void initializeContext() {
+
+		final Map<String, Object> values = new LinkedHashMap<>();
+
+		// collect values only, no schema
+		collectProcessData(null, values);
+
+		securityContext.getContextStore().setConstant("process", values);
+
 	}
 }

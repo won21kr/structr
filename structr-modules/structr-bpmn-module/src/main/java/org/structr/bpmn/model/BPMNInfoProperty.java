@@ -29,11 +29,11 @@ import org.structr.core.property.AbstractReadOnlyProperty;
 
 /**
  */
-public class BPMNStatusProperty extends AbstractReadOnlyProperty<Object> {
+public class BPMNInfoProperty extends AbstractReadOnlyProperty<Object> {
 
-	private static final Logger logger = LoggerFactory.getLogger(BPMNStatusProperty.class);
+	private static final Logger logger = LoggerFactory.getLogger(BPMNInfoProperty.class);
 
-	public BPMNStatusProperty(final String name) {
+	public BPMNInfoProperty(final String name) {
 		super(name);
 	}
 
