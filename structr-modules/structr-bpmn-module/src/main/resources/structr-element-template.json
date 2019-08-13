@@ -244,8 +244,15 @@
       },
       {
         "label": "Type",
-        "type": "String",
-        "value": "",
+        "type": "Dropdown",
+        "value": "String",
+	"choices": [
+	  { "name": "String",  "value": "string" },
+	  { "name": "Boolean",  "value": "boolean" },
+	  { "name": "Number (integer)", "value": "long" },
+	  { "name": "Number (floating point)", "value": "number" },
+	  { "name": "Date", "value": "date" }
+	],
         "binding": {
           "type": "camunda:property",
           "name": "type"
