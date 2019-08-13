@@ -20,6 +20,8 @@ package org.structr.bpmn.model;
 
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -27,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.structr.common.SecurityContext;
 import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
+import org.structr.core.Export;
 import org.structr.core.app.StructrApp;
 import org.structr.core.entity.AbstractNode;
 import org.structr.core.property.BooleanProperty;
@@ -36,7 +39,6 @@ import org.structr.core.property.Property;
 import org.structr.core.property.PropertyKey;
 import org.structr.core.property.StartNode;
 import org.structr.core.property.StringProperty;
-import org.structr.schema.SchemaHelper;
 
 /**
  *
@@ -183,15 +185,23 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 		}
 	}
 
-	public void collectProcessData(final Map<String, Object> schema, final Map<String, Object> values) {
+	@Export
+	public Map<String, Object> processData(final String optionalMode) {
 
+		String mode = optionalMode;
+		if (mode == null) {
+
+			mode = "newest";
+		}
 
 		// This method iterates over all steps from this one to the start step and
-		// collects all property values that are registered in the BPMN view.
+		// collects all property values that are registered in the BPMN view,
+		// according to the "mode" setting.
 
-		BPMNProcessStep current = this;
-		BPMNProcessStep prev    = null;
-		int count               = 0;
+		final Map<String, Object> values = new LinkedHashMap<>();
+		BPMNProcessStep current          = this;
+		BPMNProcessStep prev             = null;
+		int count                        = 0;
 
 		do {
 
@@ -215,30 +225,56 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 
 					for (final PropertyKey key : bpmnView) {
 
-						// collect values only if map is not null
-						if (values != null) {
-							values.put(key.jsonName(), current.getProperty(key));
-						}
+						switch (mode) {
+							case "newest":
+								{
+									// first (newest) value must be returned, since we're iterating backwards
+									if (!values.containsKey(key.jsonName())) {
 
-						// collect schema data only if map is not null
-						if (schema != null) {
-							schema.put(key.jsonName(), SchemaHelper.getPropertyInfo(securityContext, key));
+										final Object value = current.getProperty(key);
+										if (value != null) {
+
+											values.put(key.jsonName(), value);
+										}
+									}
+								}
+								break;
+
+							case "oldest":
+								{
+									// easiest: older values overwrite newer values
+									final Object value = current.getProperty(key);
+									if (value != null) {
+
+										values.put(key.jsonName(), value);
+									}
+								}
+								break;
+
+							case "all":
+								{
+									List<Object> list = (List)values.get(key.jsonName());
+									if (list == null) {
+
+										list = new LinkedList<>();
+										values.put(key.jsonName(), list);
+									}
+
+									final Object value = current.getProperty(key);
+									if (value != null) {
+
+										list.add(value);
+									}
+								}
+
+								break;
 						}
 					}
 				}
 			}
 
 		} while (prev != null);
-	}
 
-	public void initializeContext() {
-
-		final Map<String, Object> values = new LinkedHashMap<>();
-
-		// collect values only, no schema
-		collectProcessData(null, values);
-
-		securityContext.getContextStore().setConstant("process", values);
-
+		return values;
 	}
 }

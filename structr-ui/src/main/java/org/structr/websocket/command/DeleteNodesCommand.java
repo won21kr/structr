@@ -25,6 +25,8 @@ import org.structr.common.SecurityContext;
 import org.structr.common.error.FrameworkException;
 import org.structr.core.app.App;
 import org.structr.core.app.StructrApp;
+import org.structr.core.graph.NodeInterface;
+import org.structr.core.graph.TransactionCommand;
 import org.structr.core.graph.Tx;
 import org.structr.websocket.StructrWebSocket;
 import org.structr.websocket.message.WebSocketMessage;
@@ -59,7 +61,11 @@ public class DeleteNodesCommand extends AbstractCommand {
 
 				for (final String id : nodeIds) {
 
-					DeleteNodeCommand.deleteNode(getWebSocket(), app.getNodeById(id), recursive);
+					final NodeInterface obj = app.getNodeById(id);
+
+					TransactionCommand.registerNodeCallback(obj, callback);
+
+					DeleteNodeCommand.deleteNode(getWebSocket(), obj, recursive);
 				}
 
 				tx.success();

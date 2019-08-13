@@ -117,8 +117,6 @@ public class BPMNService extends Thread implements RunnableService {
 
 				try (final Tx tx = StructrApp.getInstance(securityContext).tx()) {
 
-					step.initializeContext();
-
 					if (step.canBeExecuted()) {
 
 						final Object value = step.execute(new LinkedHashMap<>());

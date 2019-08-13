@@ -18,10 +18,15 @@
  */
 package org.structr.bpmn.model;
 
+import org.structr.bpmn.model.property.BPMNInfoProperty;
+import org.structr.bpmn.model.property.BPMNDataProperty;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.structr.bpmn.model.property.BPMNStepsProperty;
 import org.structr.common.PropertyView;
 import org.structr.common.SecurityContext;
 import org.structr.common.View;
@@ -42,8 +47,9 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 
 	private static final Logger logger = LoggerFactory.getLogger(BPMNProcess.class);
 
-	public static final Property<Object> info = new BPMNInfoProperty("info");
-	public static final Property<Object> data = new BPMNDataProperty("data");
+	public static final Property<Object> steps = new BPMNStepsProperty("steps");
+	public static final Property<Object> info  = new BPMNInfoProperty("info");
+	public static final Property<Object> data  = new BPMNDataProperty("data");
 
 	public static final View publicView = new View(BPMNProcess.class, PropertyView.Public,
 		info
@@ -94,13 +100,9 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 
 	public Map<String, Object> getStatus() throws FrameworkException {
 
-		final BPMNProcessInfo info        = new BPMNProcessInfo();
+		final BPMNProcessInfo info        = new BPMNProcessInfo(null);
 		final BPMNProcessStep currentStep = findCurrentStep(info);
 		final Map<String, Object> status  = new LinkedHashMap<>();
-		final Map<String, Object> schema  = new LinkedHashMap<>();
-		final Map<String, Object> values  = new LinkedHashMap<>();
-
-		currentStep.collectProcessData(schema, values);
 
 		status.put("currentStep",   currentStep);
 		status.put("type",          getProcessName());
@@ -109,11 +111,20 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 		status.put("suspended",     currentStep.isSuspended());
 		status.put("canBeExecuted", currentStep.canBeExecuted());
 		status.put("steps",         info.getNumberOfSteps());
-		status.put("schema",        schema);
-		status.put("values",        values);
 
 		return status;
 	}
+
+	public List<BPMNProcessStep> getSteps() {
+
+		final List<BPMNProcessStep> steps = new LinkedList<>();
+		final BPMNProcessInfo info        = new BPMNProcessInfo(steps);
+
+		findCurrentStep(info);
+
+		return steps;
+	}
+
 
 	// ----- private methods -----
 	private PropertyMap getDataForNextStep(final Class type) throws FrameworkException {
@@ -140,7 +151,7 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 
 				current = next;
 
-				info.countStep();
+				info.countStep(current);
 			}
 
 			// prevent endless loop
@@ -176,13 +187,20 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 	// ----- nested classes -----
 	private class BPMNProcessInfo {
 
-		private int numberOfSteps = 0;
+		private List<BPMNProcessStep> steps = null;
+		private int numberOfSteps           = 0;
 
-		public BPMNProcessInfo() {
+		public BPMNProcessInfo(final List<BPMNProcessStep> steps) {
+			this.steps = steps;
 		}
 
-		public void countStep() {
+		public void countStep(final BPMNProcessStep step) {
+
 			numberOfSteps++;
+
+			if (steps != null) {
+				steps.add(step);
+			}
 		}
 
 		public int getNumberOfSteps() {

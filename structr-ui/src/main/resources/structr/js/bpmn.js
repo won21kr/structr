@@ -41,7 +41,6 @@ var _BPMN = {
 	searchTextLength: 0,
 	lastClickedPath: '',
 	bpmnRecentElementsKey: 'structrBPMNRecentElements_' + port,
-	timeouts: {},
 	init: function () {
 
 		_Logger.log(_LogType.BPMN, '_BPMN.init');
@@ -196,8 +195,6 @@ var _BPMN = {
 	},
 	handleTreeClick: function(event, data) {
 
-		console.log(data.node);
-
 		switch (data.node.id) {
 
 			case 'running':
@@ -245,7 +242,7 @@ var _BPMN = {
 							Command.create(data, function(p) {
 
 								$('#bpmn-running-process-list').prepend('<tr id="row-' + p.id + '"><td></td><td></td><td></td><td></td></tr>');
-								_BPMN.enableContinuousUpdate(p.id);
+								window.setTimeout(function() { _BPMN.updateRow(p.id) }, 200);
 							});
 						});
 					});
@@ -274,52 +271,130 @@ var _BPMN = {
 
 		Command.get(id, undefined, function(step) {
 
-			let action        = '';
-			let canBeExecuted = '';
+			let action = {
+				id: '',
+				value: ''
+			};
+			let canBeExecuted = {
+				id: '',
+				value: ''
+			}
 
 			step.schemaMethods.forEach(m => {
 				switch (m.name) {
 					case 'action':
-						action = m.source;
+						action.id    = m.id;
+						action.value = m.source;
 						break;
 
 					case 'canBeExecuted':
-						canBeExecuted = m.source;
+						canBeExecuted.id    = m.id;
+						canBeExecuted.value = m.source;
 				}
 			});
 
-			Structr.fetchHtmlTemplate('bpmn/step-details', { step: step, action: action, canBeExecuted: canBeExecuted }, function (html) {
+			Structr.fetchHtmlTemplate('bpmn/step-details', { step: step }, function (html) {
 
-				$('#bpmn-contents').empty();
-				$('#bpmn-contents').append(html);
+				var element = $('#bpmn-contents');
 
-				CodeMirror.fromTextArea(document.getElementById('action-' + step.id), {
+				element.empty();
+				element.append(html);
+
+				var actionEditor = CodeMirror($('#action-' + step.id).get(0), {
+					value: action.value,
 					mode: 'javascript',
 					lineNumbers: true,
 					lineWrapping: false,
 					indentUnit: 4,
 					tabSize:4,
-					indentWithTabs: true
-				}).setSize(null, 150);
+					indentWithTabs: true,
+					extraKeys: {
+						"Ctrl-Space": "autocomplete"
+					}
+				});
 
-				CodeMirror.fromTextArea(document.getElementById('exec-' + step.id), {
+				var execEditor = CodeMirror($('#exec-' + step.id).get(0), {
+					value: canBeExecuted.value,
 					mode: 'javascript',
 					lineNumbers: true,
 					lineWrapping: false,
 					indentUnit: 4,
 					tabSize:4,
-					indentWithTabs: true
-				}).setSize(null, 150);
+					indentWithTabs: true,
+					extraKeys: {
+						"Ctrl-Space": "autocomplete"
+					}
+				});
+
+				actionEditor.setSize(null, 250);
+				execEditor.setSize(null, 250);
+
+				_BPMN.showButtons(actionEditor, $('#buttons-action-' + step.id),          action.id, 'source',        action.value);
+				_BPMN.showButtons(  execEditor,   $('#buttons-exec-' + step.id),   canBeExecuted.id, 'source', canBeExecuted.value);
 			});
 
+		});
+
+	},
+	showButtons: function(editor, container, id, key, value) {
+
+		container.append('<button id="resetMethod' + id + '" disabled="disabled" class="disabled"><i title="Cancel" class="' + _Icons.getFullSpriteClass(_Icons.cross_icon) + '" /> Cancel</button>');
+		container.append('<button id="saveMethod' + id + '" disabled="disabled" class="disabled"><i title="Save" class="' + _Icons.getFullSpriteClass(_Icons.floppy_icon) + '" /> Save</button>');
+
+		var codeResetButton  = $('#resetMethod' + id, container);
+		var codeSaveButton   = $('#saveMethod' + id, container);
+
+		editor.on('change', function(cm, change) {
+
+			if (value === editor.getValue()) {
+				codeSaveButton.prop("disabled", true).addClass('disabled');
+				codeResetButton.prop("disabled", true).addClass('disabled');
+			} else {
+				codeSaveButton.prop("disabled", false).removeClass('disabled');
+				codeResetButton.prop("disabled", false).removeClass('disabled');
+			}
+		});
+
+		codeResetButton.on('click', function(e) {
+
+			e.preventDefault();
+			e.stopPropagation();
+			editor.setValue(value);
+			codeSaveButton.prop("disabled", true).addClass('disabled');
+			codeResetButton.prop("disabled", true).addClass('disabled');
+		});
+
+		codeSaveButton.on('click', function(e) {
+
+			e.preventDefault();
+			e.stopPropagation();
+			var newText = editor.getValue();
+			if (value === newText) {
+				return;
+			}
+			Command.setProperty(id, key, newText);
+			value = newText;
+			codeSaveButton.prop("disabled", true).addClass('disabled');
+			codeResetButton.prop("disabled", true).addClass('disabled');
+		});
+
+		editor.on('keydown', function(target, event) {
+
+			if ((event.ctrlKey && (event.which === 83)) || (navigator.platform === 'MacIntel' && cmdKey && (event.which === 83))) {
+
+				event.preventDefault();
+
+				if (codeSaveButton && !codeSaveButton.prop('disabled')) {
+					console.log('save');
+					codeSaveButton.click();
+				}
+			}
 		});
 
 	},
 	showProcessDetails: function(id) {
 
 		Command.get(id, undefined, function(process) {
-
-			console.log(process);
 
 			Structr.fetchHtmlTemplate('bpmn/process-details', { process: process }, function (html) {
 
@@ -365,9 +440,7 @@ var _BPMN = {
 									});
 								}
 							);
-
 						});
-
 					});
 				}
 
@@ -379,21 +452,30 @@ var _BPMN = {
 
 						Structr.confirmation('<h3>Really delete process?</h3><p>blah</p>',
 							function() {
-								Structr.showLoadingMessage('Schema is compiling..', 'Please wait.', 200);
-								Command.deleteNode(id, false, function() {
-									_BPMN.refreshTree();
-									Structr.hideLoadingMessage();
-								});
+
+								// fetch all associated schema nodes
+								Command.query('SchemaNode', 10000, 1, 'name', 'asc', { category: process.category }, function(result) {
+
+									var ids = [];
+
+									result.forEach(function(r) { ids.push(r.id); });
+
+									Structr.showLoadingMessage('Schema is compiling..', 'Please wait.', 200);
+
+									Command.deleteNodes(ids, false, function() {
+
+										_BPMN.refreshTree();
+										Structr.hideLoadingMessage();
+									});
+
+								}, true);
 							}
 						);
-
 					});
 				});
 
 			}, 'ui');
-
 		});
-
 	},
 	updateRow: function(id) {
 
@@ -412,44 +494,30 @@ var _BPMN = {
 				container.append(html);
 			}
 
+			let stepId = p.info.currentStep.id;
+
 			if (p && p.info && p.info.currentStep && !p.info.finished && p.info.suspended) {
 
-				let stepId = p.info.currentStep.id;
 
 				$('#actions-' + stepId).append('<button class="action button" id="finish-' + stepId + '">' + _Icons.getHtmlForIcon(_Icons.exec_icon) + ' Next</button>');
 				$('#finish-' + stepId).on('click', function() {
 
 					Command.setProperty(stepId, 'isSuspended', false, false, function() {
 
-						_BPMN.enableContinuousUpdate(p.id);
+						_BPMN.updateRow(p.id);
 					});
+				});
+
+			} else if (!p.info.finished) {
+
+				$('#actions-' + stepId).append('<button class="button" id="refresh-' + stepId + '">' + _Icons.getHtmlForIcon(_Icons.refresh_icon) + '</button>');
+				$('#refresh-' + stepId).on('click', function() {
+
+					_BPMN.updateRow(p.id);
 				});
 			}
 		});
 
-	},
-	enableContinuousUpdate: function(id) {
-
-		if (_BPMN.timeouts[id]) {
-
-			window.clearInterval(_BPMN.timeouts[id]);
-		}
-
-		if (id && id.length) {
-
-			_BPMN.updateRow(id);
-
-			_BPMN.timeouts[id] = window.setInterval(function() {
-				_BPMN.updateRow(id);
-			}, 200);
-
-		}
-	},
-	stopAllTimeouts: function() {
-
-		Object.keys(_BPMN.timeouts).forEach(function(key) {
-			window.clearInterval(_BPMN.timeouts[key]);
-		});
 	},
 	treeAddProcesses: function(active, callback) {
 
@@ -534,7 +602,6 @@ var _BPMN = {
 	},
 	showProcess: function(id) {
 
-	    //query: function(type, pageSize, page, sort, order, properties, callback, exact, view, customView) {
 		Command.query('SchemaNode', 1000, 1, 'description', 'asc', { category: id }, function(result) {
 
 			let index = {};

@@ -343,7 +343,7 @@ var Command = {
 	 * The server will delete the nodes with the given ids and broadcast
 	 * a deletion notification.
 	 */
-	deleteNodes: function(ids, recursive) {
+	deleteNodes: function(ids, recursive, callback) {
 		var obj = {
 			command: 'DELETE_NODES',
 			data: {
@@ -352,7 +352,7 @@ var Command = {
 		};
 		if (recursive) obj.data.recursive = recursive;
 		_Logger.log(_LogType.WS[obj.command], 'deleteNodes()', obj);
-		return sendObj(obj);
+		return sendObj(obj, callback);
 	},
 	/**
 	 * Send a DELETE_RELATIONSHIP command to the server.

@@ -240,6 +240,12 @@ public class BPMNImporter implements BPMNTransform, BPMNPropertyProcessor {
 					switch (type) {
 
 						// ignore these property types
+						case "date":
+							property.put("type", "string");
+							property.put("format", "date-time");
+							property.put("datePattern", "");
+							break;
+
 						case "string":
 						case "password":
 						case "thumbnail":

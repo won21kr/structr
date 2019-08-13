@@ -1,7 +1,9 @@
 <div>
 	<h2>${config.step.description || config.step.name}</h2>
 	<h3>Action script</h3>
-	<div><textarea class="bpmn" id="action-${config.step.id}">${config.action}</textarea></div>
+	<div id="buttons-action-${config.step.id}"></div>
+	<div id="action-${config.step.id}"></div>
 	<h3>Execution condition</h3>
-	<div><textarea class="bpmn" id="exec-${config.step.id}">${config.canBeExecuted}</textarea></div>
+	<div id="buttons-exec-${config.step.id}"></div>
+	<div id="exec-${config.step.id}"></div>
 </div>

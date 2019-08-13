@@ -1,5 +1,57 @@
 [
   {
+    "name": "Structr Start Event",
+    "id": "org.structr.bpmn.BPMNProcess",
+    "isDefault": true,
+    "appliesTo": [
+      "bpmn:StartEvent",
+      "bpmn:EndEvent"
+    ],
+    "properties": [
+      {
+        "type": "Hidden",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "action"
+        }
+      },
+      {
+        "type": "Hidden",
+        "value": "true",
+        "binding": {
+          "type": "camunda:property",
+          "name": "canBeExecuted"
+        }
+      }
+    ],
+    "entriesVisible": {
+      "_all": true,
+      "general": true,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "details": false,
+      "condition": false,
+      "assignee": false,
+      "candidateUsers": false,
+      "candidateGroups": false,
+      "dueDate": false,
+      "followUpDate": false,
+      "priority": false,
+      "message": false,
+      "messageRef": false,
+      "implType": false,
+      "delegate": false,
+      "initiator": false,
+      "documentation": false
+    }
+  },
+  {
     "name": "Structr Action",
     "id": "org.structr.bpmn.Action",
     "isDefault": true,
@@ -38,6 +90,18 @@
       "asyncBefore": false,
       "asyncAfter": false,
       "exclusive": false,
+      "details": false,
+      "condition": false,
+      "assignee": false,
+      "candidateUsers": false,
+      "candidateGroups": false,
+      "dueDate": false,
+      "followUpDate": false,
+      "priority": false,
+      "message": false,
+      "messageRef": false,
+      "implType": false,
+      "delegate": false,
       "documentation": false
     }
   },
@@ -58,11 +122,20 @@
           "type": "camunda:property",
           "name": "action"
         }
+      },
+      {
+        "type": "Hidden",
+        "value": "true",
+        "binding": {
+          "type": "camunda:property",
+          "name": "canBeExecuted"
+        }
       }
     ],
     "entriesVisible": {
       "_all": true,
       "general": true,
+      "details": false,
       "executionListeners": false,
       "properties": false,
       "inputs": false,
@@ -82,7 +155,7 @@
     ],
     "properties": [
       {
-        "label": "Value",
+        "label": "Condition value",
         "type": "String",
         "description": "The condition value that activates this connection.",
         "value": "",
@@ -142,7 +215,7 @@
       }
     ],
     "entriesVisible": {
-      "_all": false,
+      "_all": true,
       "executionListeners": false,
       "properties": false,
       "inputs": false,
