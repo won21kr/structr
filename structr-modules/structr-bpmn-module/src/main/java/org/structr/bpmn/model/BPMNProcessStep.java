@@ -18,12 +18,16 @@
  */
 package org.structr.bpmn.model;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import org.mozilla.javascript.NativeObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.structr.common.SecurityContext;
@@ -54,6 +58,8 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 	public static final Property<Boolean> isSuspended          = new BooleanProperty("isSuspended").indexed().hint("This flag can be used to manually suspend a process.");
 	public static final Property<Date> dueDate                 = new ISO8601DateProperty("dueDate").indexed();
 	public static final Property<String> statusText            = new StringProperty("statusText");
+
+	private NativeObject internalState = null;
 
 	public abstract T execute(final Map<String, Object> context);
 
@@ -276,5 +282,88 @@ public abstract class BPMNProcessStep<T> extends AbstractNode {
 		} while (prev != null);
 
 		return values;
+	}
+
+	@Export
+	public Map<String, Object> getState(final SecurityContext securityContext) throws FrameworkException {
+		return internalState;
+	}
+
+	public void loadState() {
+
+		if (internalState == null) {
+
+			internalState = new NativeObject();
+
+			final BPMNProcess process = findProcess();
+			if (process != null) {
+
+				final Gson gson                = new GsonBuilder().create();
+				final Map<String, Object> data = gson.fromJson(process.getProperty(BPMNProcess.state), Map.class);
+
+				if (data != null) {
+
+					for (final Entry<String, Object> entry : data.entrySet()) {
+
+						internalState.put(entry.getKey(), internalState, entry.getValue());
+					}
+				}
+			}
+		}
+	}
+
+	public void saveState() {
+
+		try {
+
+			final BPMNProcess process = findProcess();
+			if (process != null) {
+
+				final Gson gson   = new GsonBuilder().create();
+				final String data = gson.toJson(internalState);
+
+				if (data != null) {
+
+					process.setProperty(BPMNProcess.state, data);
+				}
+			}
+
+		} catch (FrameworkException fex) {
+
+			logger.warn("Unable to store state for {} ({}): {}", getUuid(), getClass().getSimpleName(), fex.getMessage());
+		}
+	}
+
+	// ----- private methods -----
+	private BPMNProcess findProcess() {
+
+		BPMNProcessStep current = this;
+		BPMNProcessStep prev    = null;
+		int count                        = 0;
+
+		do {
+
+			prev = current.getProperty(previousStep);
+			if (prev != null) {
+
+				current = prev;
+			}
+
+			// prevent endless loop
+			if (count++ > 10000) {
+				logger.warn("Process step chain is longer than 10000, this is most likely an error. Aborting.");
+				break;
+			}
+
+		} while (prev != null);
+
+		if (current instanceof BPMNProcess) {
+
+			return (BPMNProcess)current;
+		}
+
+		logger.warn("Unable to find process head, first element in chain is {} ({})", current.getClass().getSimpleName(), current.getUuid());
+
+		return null;
 	}
 }

@@ -37,6 +37,7 @@ import org.structr.core.entity.SchemaNode;
 import org.structr.core.property.Property;
 import org.structr.core.property.PropertyKey;
 import org.structr.core.property.PropertyMap;
+import org.structr.core.property.StringProperty;
 
 /**
  * The "head" of a BPMN process. A BPMNPRocess instance bootstraps the BPMN process
@@ -50,6 +51,7 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 	public static final Property<Object> steps = new BPMNStepsProperty("steps");
 	public static final Property<Object> info  = new BPMNInfoProperty("info");
 	public static final Property<Object> data  = new BPMNDataProperty("data");
+	public static final Property<String> state = new StringProperty("state");
 
 	public static final View publicView = new View(BPMNProcess.class, PropertyView.Public,
 		info
@@ -124,7 +126,6 @@ public abstract class BPMNProcess extends BPMNProcessStep<Object> {
 
 		return steps;
 	}
-
 
 	// ----- private methods -----
 	private PropertyMap getDataForNextStep(final Class type) throws FrameworkException {

@@ -105,52 +105,64 @@ public class BPMNService extends Thread implements RunnableService {
 	@Override
 	public void run() {
 
-		final SecurityContext securityContext = SecurityContext.getSuperUserInstance();
+		try {
 
-		securityContext.setAttribute("BPMNService", true);
+			final SecurityContext securityContext = SecurityContext.getSuperUserInstance();
 
-		running = true;
+			securityContext.setAttribute("BPMNService", true);
 
-		while (running) {
+			running = true;
 
-			for (final BPMNProcessStep step : fetchActiveSteps()) {
+			while (running) {
 
-				try (final Tx tx = StructrApp.getInstance(securityContext).tx()) {
+				for (final BPMNProcessStep step : fetchActiveSteps()) {
 
-					if (step.canBeExecuted()) {
+					try (final Tx tx = StructrApp.getInstance(securityContext).tx()) {
 
-						final Object value = step.execute(new LinkedHashMap<>());
+						step.loadState();
 
-						// find and assign next step if possible
-						if (step.next(value)) {
+						if (step.canBeExecuted()) {
 
-							step.finish();
+							final Object value = step.execute(new LinkedHashMap<>());
+
+							// find and assign next step if possible
+							if (step.next(value)) {
+
+								step.finish();
+
+							} else {
+
+								// don't start this step again without user interaction
+								step.suspend();
+
+								logger.info("Step {} ({}) suspended because next step could not be determined.", step, step.getClass().getSimpleName());
+							}
 
 						} else {
 
 							// don't start this step again without user interaction
 							step.suspend();
-
-							logger.info("Step {} ({}) suspended because next step could not be determined.", step, step.getClass().getSimpleName());
 						}
 
-					} else {
+						step.saveState();
 
-						// don't start this step again without user interaction
-						step.suspend();
+						tx.success();
+
+					} catch (Throwable t) {
+
+						t.printStackTrace();
+						logger.warn("Exception while executing BPMN process step {} ({}).", step, step.getClass().getSimpleName());
 					}
+				}
 
-					tx.success();
-
-				} catch (FrameworkException fex) {
-
-					fex.printStackTrace();
+00				try { Thread.sleep(1000); } catch (Throwable t) {
+					t.printStackTrace();
 				}
 			}
 
-			try { Thread.sleep(1000); } catch (Throwable t) {
-				t.printStackTrace();
-			}
+		} finally {
+
+			logger.info("BPMNService thread finished execution.");
 		}
 	}
 

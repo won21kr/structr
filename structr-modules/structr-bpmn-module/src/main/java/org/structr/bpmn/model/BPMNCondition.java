@@ -81,7 +81,7 @@ public abstract class BPMNCondition extends BPMNProcessStep<Object> {
 						final Class<BPMNProcessStep> nextType = nextKey.relatedType();
 						if (nextType != null) {
 
-							return StructrApp.getInstance().create(nextType);
+							return StructrApp.getInstance(securityContext).create(nextType);
 						}
 
 					} else {
