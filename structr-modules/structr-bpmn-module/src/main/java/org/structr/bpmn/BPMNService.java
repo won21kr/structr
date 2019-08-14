@@ -155,7 +155,7 @@ public class BPMNService extends Thread implements RunnableService {
 					}
 				}
 
-00				try { Thread.sleep(1000); } catch (Throwable t) {
+				try { Thread.sleep(1000); } catch (Throwable t) {
 					t.printStackTrace();
 				}
 			}
