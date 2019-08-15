@@ -3758,7 +3758,7 @@ public class ScriptingTest extends StructrTest {
 
 		final ActionContext ctx = new ActionContext(securityContext);
 		final Class type        = StructrApp.getConfiguration().getNodeEntityClass("Project");
-                final PropertyKey date  = StructrApp.key(type, "date");
+		final PropertyKey date  = StructrApp.key(type, "date");
 		final Calendar calendar = GregorianCalendar.getInstance();
 
 		// setup
@@ -3812,6 +3812,69 @@ public class ScriptingTest extends StructrTest {
 
 			fex.printStackTrace();
 			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testDatePropertyWithNonStandardFormatInScripting() {
+
+		// setup
+		try (final Tx tx = app.tx()) {
+
+			final JsonSchema schema = StructrSchema.createFromDatabase(app);
+			schema.addType("Test");
+
+			final JsonType project  = schema.addType("Project");
+			project.addDateProperty("date").setIndexed(true).setFormat("yyyy");
+
+			StructrSchema.extendDatabaseSchema(app, schema);
+
+			tx.success();
+
+		} catch (Throwable fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		final ActionContext ctx = new ActionContext(securityContext);
+		final Class type        = StructrApp.getConfiguration().getNodeEntityClass("Project");
+		final PropertyKey date  = StructrApp.key(type, "date");
+		final Calendar calendar = GregorianCalendar.getInstance();
+
+		// setup
+		try (final Tx tx = app.tx()) {
+
+			calendar.set(2019, 0, 1, 10, 20, 30);
+			app.create(type, new NodeAttribute<>(AbstractNode.name, "p1"), new NodeAttribute<>(date, calendar.getTime()));
+
+			tx.success();
+
+		} catch (Throwable fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		try (final Tx tx = app.tx()) {
+
+			final Object value1 = Scripting.evaluate(ctx, null, "${{ return $.find('Project', 'name', 'p1')[0].date; }}", "");
+			final Object value2 = Scripting.evaluate(ctx, null, "${{ return $.get($.find('Project', 'name', 'p1')[0], 'date'); }}", "");
+
+			final Object value3 = Scripting.evaluate(ctx, null, "${find('Project', 'name', 'p1')[0].date}", "");
+			final Object value4 = Scripting.evaluate(ctx, null, "${get(first(find('Project', 'name', 'p1')), 'date')}", "");
+
+			assertTrue("dot notation should yield unformatted date object", value1 instanceof Date);
+			assertTrue("get function should yield formatted date string", value2 instanceof String);
+			assertTrue("dot notation should yield unformatted date object", value3 instanceof Date);
+			assertTrue("get function should yield formatted date string", value4 instanceof String);
+
+			tx.success();
+
+		} catch (Throwable fex) {
+
+			fex.printStackTrace();
+			fail(fex.getMessage());
 		}
 	}
 
