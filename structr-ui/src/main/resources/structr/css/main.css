@@ -3363,6 +3363,22 @@ td#cascading-options, td#propagation-options {
 	max-width: 800px;
 }
 
+div.CodeMirror span.CodeMirror-matchingbracket {
+	text-decoration: underline;
+	text-decoration-skip-ink: none;
+	background-color: #cacaca82;
+	color: black;
+}
+
+.CodeMirror-lint-tooltip {
+	z-index: 1011;
+}
+
+.cm-trailingspace {
+	background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3QUXCToH00Y1UgAAACFJREFUCNdjPMDBUc/AwNDAAAFMTAwMDA0OP34wQgX/AQBYgwYEx4f9lQAAAABJRU5ErkJggg==);
+	background-position: bottom left;
+	background-repeat: repeat-x;
+}
 #fruchterman-controlElement {
 	float: none ! important;
 	display: block;

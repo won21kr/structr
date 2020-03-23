@@ -32,6 +32,7 @@ var pagerDataKey = 'structrPagerData_' + port + '_';
 var dialogDataKey = 'structrDialogData_' + port;
 var dialogHtmlKey = 'structrDialogHtml_' + port;
 var scrollInfoKey = 'structrScrollInfoKey_' + port;
+var foldInfoKey = 'structrFoldInfoKey_' + port;
 var consoleModeKey = 'structrConsoleModeKey_' + port;
 var resizeFunction;
 var altKey = false, ctrlKey = false, shiftKey = false, eKey = false, cmdKey = false;
@@ -1961,7 +1962,28 @@ var Structr = {
 		});
 
 		LSWrapper.setItem(Structr.keyCodeMirrorSettings, codeMirrorSettings);
+	},
+
+	updateCodeMirrorFoldedLSLines : function(editor, entity) {
+		var foldedLines = [];
+		var allMarks = editor.getAllMarks();
+		for (var i = allMarks.length - 1; i >= 0; i-- ){
+			if (allMarks[i].collapsed && (allMarks[i].type === 'range') ){
+				foldedLines.push(allMarks[i].find().from.line);
+			}
+		}
+		LSWrapper.setItem(foldInfoKey+ '_' + entity.id, JSON.stringify(foldedLines))
+	},
+
+	restoreCodeMirrorFoldedLSLine: function (editor, entity) {
+		var foldInfo = JSON.parse(LSWrapper.getItem(foldInfoKey + '_' + entity.id));
+		if (foldInfo) {
+			for (var line of foldInfo) {
+				editor.foldCode(line);
+			}
+		}
 	}
+
 };
 
 var _TreeHelper = {

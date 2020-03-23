@@ -395,7 +395,8 @@ var _Entities = {
 					lineWrapping: false,
 					indentUnit: 4,
 					tabSize:4,
-					indentWithTabs: true
+					indentWithTabs: true,
+					matchBrackets: true
 				}));
 
 				$('.CodeMirror-scroll').prepend('<div class="starttag"></div>');

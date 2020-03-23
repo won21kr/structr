@@ -13,6 +13,8 @@
 		<link rel="stylesheet" type="text/css" media="screen" href="css/lib/vis.min.css">
 		<link rel="stylesheet" type="text/css" media="screen" href="css/lib/font-awesome.min.css">
 		<link rel="stylesheet" type="text/css" media="screen" href="codemirror/lib/codemirror.css">
+		<link rel="stylesheet" type="text/css" media="screen" href="codemirror/addon/lint/lint.css">
+		<link rel="stylesheet" type="text/css" media="screen" href="codemirror/addon/fold/foldgutter.css">
 		<link rel="stylesheet" type="text/css" media="screen" href="codemirror/addon/dialog/dialog.css">
 		<link rel="stylesheet" type="text/css" media="screen" href="codemirror/addon/hint/show-hint.css">
 		<link rel="stylesheet" type="text/css" media="screen" href="codemirror/addon/search/matchesonscrollbar.css">
@@ -52,8 +54,19 @@
 		<script src="js/lib/clipboard.min.js"></script>
 		<script src="js/lib/vis.min.js"></script>
 
+		<script src="js/lib/jshint/jshint.js"></script>
+		<script src="js/lib/htmlhint.js"></script>
+		<script src="js/lib/csslint.js"></script>
 		<script src="codemirror/lib/codemirror.js"></script>
-		<script src="codemirror/addon/scroll/annotatescrollbar.js"></script>
+
+		<script src="codemirror/addon/edit/matchbrackets.js"></script>
+		<script src="codemirror/addon/edit/trailingspace.js"></script>
+
+		<script src="codemirror/addon/fold/foldcode.js"></script>
+		<script src="codemirror/addon/fold/foldgutter.js"></script>
+		<script src="codemirror/addon/fold/comment-fold.js"></script>
+		<script src="codemirror/addon/fold/brace-fold.js"></script>
+
 		<script src="codemirror/addon/search/matchesonscrollbar.js"></script>
 		<script src="codemirror/addon/search/search.js"></script>
 		<script src="codemirror/addon/search/searchcursor.js"></script>
@@ -65,6 +78,11 @@
 		<script src="codemirror/mode/clike/clike.js"></script>
 		<script src="codemirror/mode/javascript/javascript.js"></script>
 		<script src="codemirror/mode/meta.js"></script>
+		<script src="codemirror/addon/lint/lint.js"></script>
+		<script src="codemirror/addon/lint/javascript-lint.js"></script>
+		<script src="codemirror/addon/lint/css-lint.js"></script>
+		<script src="codemirror/addon/lint/html-lint.js"></script>
+		<script src="codemirror/addon/lint/json-lint.js"></script>
 		<script src="js/codemirror-htmlmixed-structr.js"></script>
 		<script src="trumbowyg/trumbowyg.min.js"></script>
 

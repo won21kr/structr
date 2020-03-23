@@ -825,21 +825,36 @@ var _Code = {
 			indentUnit: 4,
 			tabSize: 4,
 			indentWithTabs: true,
+			matchBrackets: true,
+			showTrailingSpace: true,
+			foldGutter: true,
+			gutters: ["CodeMirror-lint-markers", "CodeMirror-foldgutter"],
+			lint: {
+				esversion: 6
+			},
 			extraKeys: {
 				"Ctrl-Space": "autocomplete"
 			}
 		}));
 
 		_Code.setupAutocompletion(editor, entity.id, true);
-
 		var scrollInfo = JSON.parse(LSWrapper.getItem(scrollInfoKey + '_' + entity.id));
 		if (scrollInfo) {
 			editor.scrollTo(scrollInfo.left, scrollInfo.top);
 		}
 
+		Structr.restoreCodeMirrorFoldedLSLine(editor, entity);
+
 		editor.on('scroll', function() {
 			var scrollInfo = editor.getScrollInfo();
 			LSWrapper.setItem(scrollInfoKey + '_' + entity.id, JSON.stringify(scrollInfo));
+		});
+
+		editor.on('fold', function () {
+			Structr.updateCodeMirrorFoldedLSLines(editor, entity);
+		});
+		editor.on('unfold', function () {
+			Structr.updateCodeMirrorFoldedLSLines(editor, entity);
 		});
 
 		if (entity.codeType === 'java') {
@@ -869,6 +884,8 @@ var _Code = {
 
 		_Code.displayDefaultMethodOptions(entity);
 	},
+
+
 	displayCreateButtons: function(showCreateMethodsButton, showCreateGlobalButton, showCreateTypeButton, schemaNodeId) {
 
 		if (showCreateMethodsButton) {

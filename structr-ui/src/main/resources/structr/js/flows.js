@@ -630,8 +630,24 @@ var _Flows = {
 			indentUnit: 4,
 			tabSize: 4,
 			indentWithTabs: true,
-			autofocus: true
+			autofocus: true,
+            matchBrackets: true,
+            showTrailingSpace: true,
+            foldGutter: true,
+            gutters: ["CodeMirror-lint-markers", "CodeMirror-foldgutter"],
+            lint: {
+                esversion: 6
+            }
 		}));
+
+        Structr.restoreCodeMirrorFoldedLSLine(cmEditor, element);
+
+        cmEditor.on('fold', function () {
+            Structr.updateCodeMirrorFoldedLSLines(cmEditor, element);
+        });
+        cmEditor.on('unfold', function () {
+            Structr.updateCodeMirrorFoldedLSLines(cmEditor, element);
+        });
 
         Structr.resize();
 

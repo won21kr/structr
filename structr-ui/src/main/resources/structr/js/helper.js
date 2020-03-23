@@ -1051,7 +1051,12 @@ var _Favorites = new (function () {
 								lineWrapping: false,
 								indentUnit: 4,
 								tabSize: 4,
-								indentWithTabs: true
+								indentWithTabs: true,
+								matchBrackets: true,
+								gutters: ["CodeMirror-lint-markers"],
+								lint: {
+									esversion: 6
+								}
 							}));
 							_Code.setupAutocompletion(editor, id);
 

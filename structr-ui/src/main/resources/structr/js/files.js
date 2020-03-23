@@ -1329,7 +1329,8 @@ var _Files = {
 					indentWithTabs: true,
 					extraKeys: {
 						"Ctrl-Space": "autocomplete"
-					}
+					},
+					matchBrackets: true
 				}));
 				_Code.setupAutocompletion(editor, file.id, false);
 

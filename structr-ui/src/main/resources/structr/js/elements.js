@@ -1516,6 +1516,7 @@ var _Elements = {
 			extraKeys: {
 				"Ctrl-Space": "autocomplete"
 			},
+			matchBrackets: true,
 			indentUnit: 4,
 			tabSize: 4,
 			indentWithTabs: true
