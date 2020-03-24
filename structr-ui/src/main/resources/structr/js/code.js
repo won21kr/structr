@@ -1933,9 +1933,19 @@ var _Code = {
 	},
 	setupAutocompletion: function(editor, id, isAutoscriptEnv) {
 
-		CodeMirror.registerHelper('hint', 'ajax', (editor, callback) => _Code.getAutocompleteHint(editor, id, isAutoscriptEnv, callback));
+		CodeMirror.registerHelper('hint', 'ajax', (editor, callback, options) => _Code.getAutocompleteHint(editor, id, isAutoscriptEnv, callback, options));
 		CodeMirror.hint.ajax.async = true;
-		CodeMirror.commands.autocomplete = function(mirror) { mirror.showHint({ hint: CodeMirror.hint.ajax }); };
+		CodeMirror.commands.autocomplete = function(mirror) {
+			//var combined = Object.assign(CodeMirror.hint.ajax, CodeMirror.hint.javascript);
+			mirror.showHint({
+				hint: CodeMirror.hint.ajax,
+				completeSingle: true,
+				alignWithWord: true,
+				closeCharacters: /[\s()\[\]{};:>,]/,
+				closeOnUnfocus: true,
+				completeOnSingleClick: true
+			});
+		};
 		editor.on('keyup', (instance, event) => {
 			switch (event.key) {
 
@@ -1947,14 +1957,28 @@ var _Code = {
 			}
 		});
 	},
-	getAutocompleteHint: function(editor, id, isAutoscriptEnv, callback) {
+	getAutocompleteHint: function(editor, id, isAutoscriptEnv, callback, options) {
 
 		var cursor = editor.getCursor();
+		var token = editor.getTokenAt(cursor);
+
 		var before = editor.getRange({ line: 0, ch: 0 }, cursor);
 		var after  = editor.getRange(cursor, { line: cursor.line + 1, ch: 0 });
 		var type   = _Code.getEditorModeForContent(editor.getValue());
 		Command.autocomplete(id, isAutoscriptEnv, before, after, cursor.line, cursor.ch, type, function(result) {
-			var inner  = { from: cursor, to: cursor, list: result };
+			let jsHints = CodeMirror.hint.javascript(editor, {
+				completeSingle: false,
+				alignWithWord: false,
+				useGlobalScope: false,
+				closeCharacters: /[\s()\[\]{};:>,]/,
+				closeOnUnfocus: false,
+				completeOnSingleClick: false,
+				container: null,
+				customKeys: null,
+				extraKeys: null
+			});
+
+			var inner  = { from: {line: cursor.line, ch: token.start, sticky: cursor.sticky}, to: cursor, list: Object.assign(jsHints.list, result)};
 			callback(inner);
 		});
 	},
