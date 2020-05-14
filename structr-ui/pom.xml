@@ -5,13 +5,13 @@
 	<parent>
 		<groupId>org.structr</groupId>
 		<artifactId>structr</artifactId>
-		<version>3.4.3</version>
+		<version>3.4.4</version>
 	</parent>
 
 	<groupId>org.structr</groupId>
 	<artifactId>structr-ui</artifactId>
 	<packaging>jar</packaging>
-	<version>3.4.3</version>
+	<version>3.4.4</version>
 	<name>Structr UI</name>
 	<description>Structr is an open source framework based on the popular Neo4j graph database.</description>
 	<developers>
@@ -253,7 +253,7 @@
 					<includes>
 						<include>**/*.java</include>
 					</includes>
-					<argLine>-Xms1g -Xmx1g -server -d64 -Duser.timezone=UTC -Djava.system.class.loader=org.structr.StructrClassLoader</argLine>
+					<argLine>-Xms1g -Xmx1g -server -Duser.timezone=UTC -Djava.system.class.loader=org.structr.StructrClassLoader</argLine>
 					<reuseForks>false</reuseForks>
 					<forkCount>1</forkCount>
 					<skipTests>${skipTests}</skipTests>
