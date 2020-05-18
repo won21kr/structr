@@ -74,6 +74,11 @@ public class FtpService implements RunnableService {
 	}
 
 	@Override
+	public boolean runOnStartup() {
+		return true;
+	}
+
+	@Override
 	public boolean isRunning() {
 		return !server.isStopped();
 	}

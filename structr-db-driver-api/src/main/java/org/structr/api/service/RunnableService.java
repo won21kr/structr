@@ -28,5 +28,18 @@ package org.structr.api.service;
 public interface RunnableService extends Service {
 
 	public void startService() throws Exception;
+
 	public void stopService();
+
+	/**
+	 * Return true if the service should be started automatically
+	 * on container startup
+	 *
+	 * @return runOnStartup
+	 */
+	public boolean runOnStartup();
+
+	@Override
+	public boolean isRunning();
+
 }

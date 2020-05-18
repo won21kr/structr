@@ -148,6 +148,11 @@ public class AgentService extends Thread implements RunnableService {
 		run = false;
 	}
 
+	@Override
+	public boolean runOnStartup() {
+		return true;
+	}
+
 	private void assignNextAgentForTask(final Task nextTask) {
 
 		Class taskClass    = nextTask.getClass();

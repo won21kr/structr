@@ -152,6 +152,11 @@ public class CronService extends Thread implements RunnableService {
 	}
 
 	@Override
+	public boolean runOnStartup() {
+		return true;
+	}
+
+	@Override
 	public boolean isRunning() {
 		return doRun;
 	}
