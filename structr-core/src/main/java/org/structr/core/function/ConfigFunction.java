@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -37,19 +37,18 @@ public class ConfigFunction extends AdvancedScriptingFunction {
 	}
 
 	@Override
+	public String getSignature() {
+		return "configKey [, defaultValue ]";
+	}
+
+	@Override
 	public Object apply(final ActionContext ctx, final Object caller, final Object[] sources) throws FrameworkException {
 
 		try {
 
 			assertArrayHasMinLengthAndMaxLengthAndAllElementsNotNull(sources, 1, 2);
 
-			final String configKey = sources[0].toString();
-
-			if (Settings.SuperUserPassword.getKey().equals(configKey)) {
-
-				return Principal.HIDDEN;
-			}
-
+			final String configKey    = sources[0].toString();
 			final String defaultValue = sources.length >= 2 ? sources[1].toString() : "";
 			Setting setting           = Settings.getSetting(configKey);
 
@@ -61,7 +60,14 @@ public class ConfigFunction extends AdvancedScriptingFunction {
 
 			if (setting != null) {
 
-				return setting.getValue();
+				if (setting.equals(Settings.SuperUserPassword)) {
+
+					return Principal.HIDDEN;
+
+				} else {
+
+					return setting.getValue();
+				}
 
 			} else {
 

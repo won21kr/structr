@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -52,9 +52,7 @@ import org.structr.core.script.StructrScriptable;
 import org.structr.schema.action.ActionContext;
 import org.structr.util.Writable;
 
-/**
- *
- */
+
 public class Console {
 
 	public enum ConsoleMode {
@@ -266,6 +264,8 @@ public class Console {
 
 	private void runStructrScript(final String line, final Writable writable) throws FrameworkException, IOException {
 
+		actionContext.setJavaScriptContext(false);
+
 		try (final Tx tx = StructrApp.getInstance(actionContext.getSecurityContext()).tx()) {
 
 			final Object result = Functions.evaluate(actionContext, null, line);
@@ -285,6 +285,8 @@ public class Console {
 
 		} catch (UnlicensedScriptException ex) {
 			ex.log(LoggerFactory.getLogger(Console.class));
+		} catch (Throwable t) {
+			throw new FrameworkException(422, t.getMessage());
 		}
 	}
 
@@ -293,6 +295,8 @@ public class Console {
 		final Context scriptingContext = Context.enter();
 
 		init(scriptingContext);
+
+		actionContext.setJavaScriptContext(true);
 
 		try (final Tx tx = StructrApp.getInstance(actionContext.getSecurityContext()).tx()) {
 
@@ -367,9 +371,10 @@ public class Console {
 
 	private void init(final Context scriptingContext) {
 
-		// Set version to JavaScript1.2 so that we get object-literal style
-		// printing instead of "[object Object]"
-		scriptingContext.setLanguageVersion(Context.VERSION_1_2);
+		scriptingContext.setLanguageVersion(Context.VERSION_ES6);
+		scriptingContext.setInstructionObserverThreshold(0);
+		scriptingContext.setGenerateObserverCount(false);
+		scriptingContext.setGeneratingDebug(true);
 
 		// Initialize the standard objects (Object, Function, etc.)
 		// This must be done before scripts can be executed.

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -26,11 +26,16 @@ import org.structr.schema.action.ActionContext;
 
 public class ComplementFunction extends CoreFunction {
 
-	public static final String ERROR_MESSAGE_COMPLEMENT = "Usage: ${complement(list1, list2, list3, ...)}. (The resulting list contains no duplicates) Example: ${complement(allUsers, me)} => List of all users except myself";
+	public static final String ERROR_MESSAGE_COMPLEMENT = "Usage: ${complement(sourceList, obj, ...)}. (The resulting list contains no duplicates) Example: ${complement(allUsers, me)} => List of all users except myself";
 
 	@Override
 	public String getName() {
 		return "complement";
+	}
+
+	@Override
+	public String getSignature() {
+		return "sourceList, obj, ...";
 	}
 
 	@Override
@@ -48,8 +53,8 @@ public class ComplementFunction extends CoreFunction {
 
 		} else {
 
-			logger.warn("Argument 1 for must be a Collection. Parameters: {}", new Object[] { getReplacement(), getParametersAsString(sources) });
-			return "Argument 1 for complement must be a Collection";
+			logger.warn("Argument 1 for complement() must be a Collection. Parameters: {}", new Object[] { getReplacement(), getParametersAsString(sources) });
+			return "Argument 1 for complement() must be a Collection";
 
 		}
 
@@ -60,7 +65,9 @@ public class ComplementFunction extends CoreFunction {
 			if (source instanceof Iterable) {
 
 				for (Object o : ((Iterable) source)) {
-					resultingList.remove(o);
+					final List mockList = new ArrayList();
+					mockList.add(o);
+					resultingList.removeAll(mockList);
 				}
 
 			} else if (source != null) {
@@ -84,7 +91,7 @@ public class ComplementFunction extends CoreFunction {
 
 	@Override
 	public String shortDescription() {
-		return "";
+		return "Returns the complement of all lists";
 	}
 
 }

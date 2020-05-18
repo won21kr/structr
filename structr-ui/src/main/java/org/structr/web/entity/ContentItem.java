@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -23,8 +23,8 @@ import org.structr.common.ConstantBooleanTrue;
 import org.structr.common.PropertyView;
 import org.structr.core.graph.NodeInterface;
 import org.structr.schema.SchemaService;
-import org.structr.schema.json.JsonObjectType;
-import org.structr.schema.json.JsonSchema;
+import org.structr.api.schema.JsonObjectType;
+import org.structr.api.schema.JsonSchema;
 
 /**
  * Base class for all content items.
@@ -40,6 +40,8 @@ public interface ContentItem extends NodeInterface {
 		type.setCategory("ui");
 
 		type.addBooleanProperty("isContentItem", PropertyView.Public, PropertyView.Ui).setReadOnly(true).addTransformer(ConstantBooleanTrue.class.getName());
+		type.addIntegerProperty("position", PropertyView.Public, PropertyView.Ui).setIndexed(true);
+		type.addEnumProperty("kind", PropertyView.Public, PropertyView.Ui).setEnums("heading", "paragraph");
 
 		type.addViewProperty(PropertyView.Public, "containers");
 		type.addViewProperty(PropertyView.Public, "name");

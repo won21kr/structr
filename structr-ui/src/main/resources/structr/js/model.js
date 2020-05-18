@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -415,6 +415,12 @@ var StructrModel = {
 				}
 			}
 
+			if (obj.hidden === true) {
+				element.addClass('is-hidden');
+			} else {
+				element.removeClass('is-hidden');
+			}
+
 			// update icon
 			var icon = undefined;
 			if (element.hasClass('element')) {
@@ -428,6 +434,13 @@ var StructrModel = {
 			} else if (element.hasClass('file')) {
 
 				icon = _Icons.getFileIconClass(obj);
+
+				if (Structr.isModuleActive(_Files)) {
+					let row = element.closest('tr');
+					if (row.length) {
+						$('td.size', row).text(obj.size);
+					}
+				}
 
 			} else if (element.hasClass('folder')) {
 

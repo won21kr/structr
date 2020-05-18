@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -30,12 +30,17 @@ import org.structr.web.entity.dom.DOMNode;
 
 public class LogEventFunction extends UiAdvancedFunction {
 
-	public static final String ERROR_MESSAGE_LOG_EVENT    = "Usage: ${log_event(action, message)}. Example: ${log_event('read', 'Book has been read')}";
-	public static final String ERROR_MESSAGE_LOG_EVENT_JS = "Usage: ${{Structr.logEvent(action, message)}}. Example: ${{Structr.logEvent('read', 'Book has been read')}}";
+	public static final String ERROR_MESSAGE_LOG_EVENT    = "Usage: ${log_event(action, message [, subject [, object ]] )}. Example: ${log_event('read', 'Book has been read')}";
+	public static final String ERROR_MESSAGE_LOG_EVENT_JS = "Usage: ${{Structr.logEvent(action, message [, subject [, object ]] )}}. Example: ${{Structr.logEvent('read', 'Book has been read')}}";
 
 	@Override
 	public String getName() {
 		return "log_event";
+	}
+
+	@Override
+	public String getSignature() {
+		return "action, message [, subject [, object ]]";
 	}
 
 	@Override

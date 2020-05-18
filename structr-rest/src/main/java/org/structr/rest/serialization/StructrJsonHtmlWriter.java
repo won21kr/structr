@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -64,7 +64,8 @@ public class StructrJsonHtmlWriter implements RestWriter {
 	protected GraphObject previousObject      = null;
 	protected boolean hasName                 = false;
 	protected String lastName                 = null;
-	protected String propertyView	        = "";
+	protected String propertyView	          = "";
+	protected int pageSize                    = -1;
 
 	static {
 
@@ -377,5 +378,15 @@ public class StructrJsonHtmlWriter implements RestWriter {
 
 	@Override
 	public void flush() throws IOException {
+	}
+
+	@Override
+	public void setPageSize(final int pageSize) {
+		this.pageSize = pageSize;
+	}
+
+	@Override
+	public int getPageSize() {
+		return pageSize;
 	}
 }

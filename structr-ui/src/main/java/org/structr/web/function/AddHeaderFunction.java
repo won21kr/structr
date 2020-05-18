@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -31,14 +31,29 @@ public class AddHeaderFunction extends UiAdvancedFunction {
 	}
 
 	@Override
+	public String getSignature() {
+		return "name, value";
+	}
+
+	@Override
 	public Object apply(final ActionContext ctx, final Object caller, final Object[] sources) {
 
 		if (sources != null && sources.length == 2) {
 
-			final String name = sources[0].toString();
-			final String value = sources[1].toString();
+			if (sources[0] != null) {
 
-			ctx.addHeader(name, value);
+				final String name = sources[0].toString();
+
+				if (sources[1] == null) {
+					ctx.removeHeader(name);
+
+				} else {
+
+					final String value = sources[1].toString();
+
+					ctx.addHeader(name, value);
+				}
+			}
 
 			return "";
 

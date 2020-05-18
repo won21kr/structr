@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -118,9 +118,8 @@ public class CSVFileImportJob extends FileImportJob {
 
 			// disable transaction notifications
 			threadContext.disableModificationOfAccessTime();
-			threadContext.ignoreResultCount(true);
 			threadContext.setDoTransactionNotifications(false);
-			threadContext.disableEnsureCardinality();
+			threadContext.disablePreventDuplicateRelationships();
 
 			try (final InputStream is = getFileInputStream(threadContext)) {
 

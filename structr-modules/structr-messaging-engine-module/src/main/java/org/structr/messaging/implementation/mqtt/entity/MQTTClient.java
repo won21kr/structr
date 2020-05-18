@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -20,6 +20,8 @@ package org.structr.messaging.implementation.mqtt.entity;
 
 import java.net.URI;
 import java.util.List;
+import org.structr.api.schema.JsonObjectType;
+import org.structr.api.schema.JsonSchema;
 import org.structr.api.util.Iterables;
 import org.structr.common.PropertyView;
 import org.structr.common.SecurityContext;
@@ -37,8 +39,6 @@ import org.structr.messaging.implementation.mqtt.MQTTContext;
 import org.structr.messaging.implementation.mqtt.MQTTInfo;
 import org.structr.rest.RestMethodResult;
 import org.structr.schema.SchemaService;
-import org.structr.schema.json.JsonObjectType;
-import org.structr.schema.json.JsonSchema;
 
 public interface MQTTClient extends MessageClient, MQTTInfo {
 
@@ -77,8 +77,6 @@ public interface MQTTClient extends MessageClient, MQTTInfo {
 			type.overrideMethod("connectionStatusCallback", false, MQTTClient.class.getName() + ".connectionStatusCallback(this, arg0);");
 			type.overrideMethod("getTopics",                false, "return " + MQTTClient.class.getName() + ".getTopics(this);");
 
-			type.overrideMethod("getQoS", false, "return getQos();");
-
 			type.overrideMethod("sendMessage", true, "return " + MQTTClient.class.getName() + ".sendMessage(this, topic, message, this.getSecurityContext());");
 			type.overrideMethod("subscribeTopic", false, "return " + MQTTClient.class.getName() + ".subscribeTopic(this, topic);");
 			type.overrideMethod("unsubscribeTopic", false, "return " + MQTTClient.class.getName() + ".unsubscribeTopic(this, topic);");
@@ -89,11 +87,7 @@ public interface MQTTClient extends MessageClient, MQTTInfo {
 
 	boolean getIsConnected();
 	boolean getIsEnabled();
-	int getPort();
 	int getQos();
-	String getProtocol();
-	String getUrl();
-	Iterable<MessageSubscriber> getSubscribers();
 
 	void setIsConnected(boolean connected) throws FrameworkException;
 

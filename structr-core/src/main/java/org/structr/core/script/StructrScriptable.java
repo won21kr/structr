@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -18,10 +18,12 @@
  */
 package org.structr.core.script;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,10 +48,7 @@ import org.structr.core.function.Functions;
 import org.structr.core.function.GrantFunction;
 import org.structr.core.parser.CacheExpression;
 import org.structr.core.parser.ConstantExpression;
-import org.structr.core.property.EnumProperty;
-import org.structr.core.property.GenericProperty;
-import org.structr.core.property.PropertyKey;
-import org.structr.core.property.PropertyMap;
+import org.structr.core.property.*;
 import org.structr.schema.action.ActionContext;
 import org.structr.schema.action.Function;
 
@@ -139,18 +138,6 @@ public class StructrScriptable extends ScriptableObject {
 					return null;
 				}
 			}, null, 0, 0);
-		}
-
-		if ("this".equals(name)) {
-
-			return wrap(this.scriptingContext, start, null, entity);
-
-		}
-
-		if ("me".equals(name)) {
-
-			return wrap(this.scriptingContext, start, null, actionContext.getSecurityContext().getUser(false));
-
 		}
 
 		if ("vars".equals(name)) {
@@ -254,11 +241,12 @@ public class StructrScriptable extends ScriptableObject {
 			}, null, 0, 0);
 		}
 
+		/*
 		if ("slice".equals(name)) {
 
-			return new IdFunctionObject(new SliceFunctionCall(actionContext, entity, scriptingContext), null, 0, 0);
-
+			return new IdFunctionObject(new SliceFunctionCall(), null, 0, 0);
 		}
+		*/
 
 		if ("doPrivileged".equals(name) || "do_privileged".equals(name)) {
 
@@ -320,13 +308,20 @@ public class StructrScriptable extends ScriptableObject {
 			final String namespaceIdentifier = function.getNamespaceIdentifier();
 			if (namespaceIdentifier != null) {
 
-				namespace.add(name);
+				namespace.add(namespaceIdentifier);
 			}
 
 			return new IdFunctionObject(new FunctionWrapper(function), "Function", 0, 0);
 		}
 
-		return null;
+		try {
+
+			return wrap(this.scriptingContext, start, null, actionContext.evaluate(entity, name, null, null, 0));
+
+		} catch (FrameworkException ex) {
+			exception = ex;
+			return null;
+		}
 	}
 
 	public boolean hasException() {
@@ -347,6 +342,23 @@ public class StructrScriptable extends ScriptableObject {
 
 	// ----- private methods -----
 	private Object wrap(final Context context, final Scriptable scope, final String key, final Object value) {
+
+		// Special case of array properties. Synthesize empty array value for null values in db.
+		if (scope.getClassName() != null && value == null && key != null) {
+			Class clazz = StructrApp.getConfiguration().getNodeEntityClass(scope.getClassName());
+			if (clazz == null) {
+				clazz = StructrApp.getConfiguration().getRelationshipEntityClass(scope.getClassName());
+			}
+
+			if (clazz != null) {
+
+				final PropertyKey pkey = StructrApp.getConfiguration().getPropertyKeyForJSONName(clazz, key);
+
+				if (pkey instanceof ArrayProperty || pkey instanceof BooleanArrayProperty || pkey instanceof DateArrayProperty) {
+					return new StructrArray(scope, key, (Object[]) Array.newInstance(Object.class, 0));
+				}
+			}
+		}
 
 		if (value instanceof NativeObject /* || value instanceof NativeArray*/ ) {
 			return value;
@@ -418,6 +430,10 @@ public class StructrScriptable extends ScriptableObject {
 
 				return unwrap(((Wrapper)source).unwrap());
 
+			} else if (source instanceof byte[]) {
+
+				return source;
+
 			} else if (source.getClass().isArray()) {
 
 				final List list = new ArrayList();
@@ -442,6 +458,17 @@ public class StructrScriptable extends ScriptableObject {
 
 				final Double value = ScriptRuntime.toNumber(source);
 				return new Date(value.longValue());
+
+			} else if (source instanceof Map && source instanceof NativeObject) {
+
+				// Map can contain ConsString and other things that need unwrapping
+				final Map<String, Object> tmp = new HashMap<>();
+
+				((Map<Object, Object>)source).forEach((k, v) -> {
+					tmp.put(k.toString(), unwrap(v));
+				});
+
+				return tmp;
 
 			} else {
 
@@ -501,17 +528,19 @@ public class StructrScriptable extends ScriptableObject {
 
 				final Object value = function.apply(actionContext, entity, unwrappedParameters);
 
-				// remove namespace identifier
-				if (function.getNamespaceIdentifier() != null) {
-					namespace.remove(function.getNamespaceIdentifier());
-				}
-
 				return wrap(context, scope, null, value);
 
 			} catch (final UnlicensedScriptException uex) {
 				uex.log(logger);
 			} catch (final FrameworkException fex) {
 				exception = fex;
+			} finally {
+
+				// remove namespace identifier
+				if (function.getNamespaceIdentifier() != null) {
+					namespace.remove(function.getNamespaceIdentifier());
+				}
+
 			}
 
 			return null;
@@ -715,7 +744,6 @@ public class StructrScriptable extends ScriptableObject {
 								value = inputConverter.convert(value);
 							}
 
-
 						} else {
 
 							final Class valueType   = key.valueType();
@@ -724,7 +752,16 @@ public class StructrScriptable extends ScriptableObject {
 							// do not convert entity / collection properties
 							if (valueType != null && relatedType == null) {
 
-								value = Context.jsToJava(value, valueType);
+								if (valueType.isArray() && value instanceof ArrayList) {
+
+									// let the scripting engine handle the conversion for us
+									final NativeArray tmp = new NativeArray(((ArrayList)value).toArray());
+									value = Context.jsToJava(tmp, valueType);
+
+								} else {
+
+									value = Context.jsToJava(value, valueType);
+								}
 							}
 						}
 
@@ -879,7 +916,13 @@ public class StructrScriptable extends ScriptableObject {
 
 		@Override
 		public Object get(String name, Scriptable start) {
-			return request.getParameter(name);
+
+			Object value = request.getParameterValues(name);
+			if (value != null && ((String[]) value).length == 1) {
+				value = ((String[]) value)[0];
+			}
+
+			return value;
 		}
 
 		@Override
@@ -987,6 +1030,11 @@ public class StructrScriptable extends ScriptableObject {
 		@Override
 		public Object get(String name, Scriptable start) {
 			return wrap(context, scope, name, map.get(name));
+		}
+
+		@Override
+		public Object get(int index, Scriptable start) {
+			return get("" + index, start);
 		}
 
 		@Override

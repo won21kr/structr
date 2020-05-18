@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -33,7 +33,7 @@ public class FixedSizeCacheTest {
 	@Test
 	public void testFixedSizeCache() {
 
-		final FixedSizeCache<Long, Long> test = new FixedSizeCache<>(10);
+		final FixedSizeCache<Long, Long> test = new FixedSizeCache<>("Test cache", 10);
 
 		for (int i=0; i<100; i++) {
 

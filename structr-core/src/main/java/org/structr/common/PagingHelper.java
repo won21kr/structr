@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -76,17 +76,4 @@ public class PagingHelper {
 		return Collections.EMPTY_LIST;
 
 	}
-
-	/*
-	public static Result addPagingParameter(Result result, int pageSize, int page) {
-
-		if (pageSize > 0 && pageSize < Integer.MAX_VALUE) {
-
-			result.setPage(page);
-			result.setPageSize(pageSize);
-		}
-
-		return result;
-	}
-	*/
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -22,6 +22,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.regex.Matcher;
+import org.structr.api.graph.Cardinality;
 import org.structr.common.ConstantBooleanTrue;
 import org.structr.common.PropertyView;
 import org.structr.common.SecurityContext;
@@ -29,12 +30,11 @@ import org.structr.common.ThreadLocalMatcher;
 import org.structr.common.error.EmptyPropertyToken;
 import org.structr.common.error.ErrorBuffer;
 import org.structr.common.error.FrameworkException;
-import org.structr.core.entity.Relation.Cardinality;
 import static org.structr.core.entity.SchemaMethod.source;
 import org.structr.core.graph.NodeInterface;
 import org.structr.schema.SchemaService;
-import org.structr.schema.json.JsonObjectType;
-import org.structr.schema.json.JsonSchema;
+import org.structr.api.schema.JsonObjectType;
+import org.structr.api.schema.JsonSchema;
 import org.structr.web.entity.dom.DOMNode;
 import org.structr.web.entity.dom.Page;
 import org.structr.web.importer.Importer;
@@ -55,11 +55,13 @@ public interface Widget extends NodeInterface {
 		type.setImplements(URI.create("https://structr.org/v1.1/definitions/Widget"));
 		type.setCategory("ui");
 
-		type.addStringProperty("source",        PropertyView.Ui, PropertyView.Public);
-		type.addStringProperty("description",   PropertyView.Ui, PropertyView.Public);
-		type.addStringProperty("configuration", PropertyView.Ui, PropertyView.Public);
-		type.addStringProperty("treePath",      PropertyView.Ui, PropertyView.Public).setIndexed(true);
-		type.addBooleanProperty("isWidget",     PropertyView.Ui, PropertyView.Public).setReadOnly(true).addTransformer(ConstantBooleanTrue.class.getName());
+		type.addStringProperty("source",          PropertyView.Ui, PropertyView.Public);
+		type.addStringProperty("description",     PropertyView.Ui, PropertyView.Public);
+		type.addStringProperty("configuration",   PropertyView.Ui, PropertyView.Public);
+		type.addStringProperty("treePath",        PropertyView.Ui, PropertyView.Public).setIndexed(true);
+		type.addBooleanProperty("isWidget",       PropertyView.Ui, PropertyView.Public).setReadOnly(true).addTransformer(ConstantBooleanTrue.class.getName());
+		type.addStringArrayProperty("selectors",  PropertyView.Ui, PropertyView.Public, "editWidget");
+		type.addBooleanProperty("isPageTemplate", PropertyView.Ui, PropertyView.Public, "editWidget").setIndexed(true);
 
 		image.relate(type, "PICTURE_OF", Cardinality.ManyToOne, "pictures", "widget");
 
@@ -110,11 +112,16 @@ public interface Widget extends NodeInterface {
 
 		if (!errorBuffer.hasError()) {
 
-			Importer importer = new Importer(securityContext, _source, baseUrl, null, false, false, false);
+			Importer importer = new Importer(securityContext, _source, baseUrl, null, false, false, false, false);
 
 			if (processDeploymentInfo) {
 				importer.setIsDeployment(true);
 				importer.setCommentHandler(new DeploymentCommentHandler());
+			}
+
+			// test: insert widget into Page object directly
+			if (parent.equals(page)) {
+				importer.setIsDeployment(true);
 			}
 
 			importer.parse(true);

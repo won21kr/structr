@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -34,6 +34,7 @@ public class StructrJsonWriter implements RestWriter {
 	private SecurityContext securityContext = null;
 	private JsonWriter writer               = null;
 	private Writer rawWriter                = null;
+	private int pageSize                    = -1;
 
 	public StructrJsonWriter(final SecurityContext securityContext, final Writer writer) {
 
@@ -152,5 +153,15 @@ public class StructrJsonWriter implements RestWriter {
 	@Override
 	public void flush() throws IOException {
 		writer.flush();
+	}
+
+	@Override
+	public void setPageSize(final int pageSize) {
+		this.pageSize = pageSize;
+	}
+
+	@Override
+	public int getPageSize() {
+		return pageSize;
 	}
 }

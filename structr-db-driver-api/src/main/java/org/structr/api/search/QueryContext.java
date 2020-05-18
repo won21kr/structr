@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -23,20 +23,43 @@ package org.structr.api.search;
  */
 public class QueryContext {
 
-	private boolean sliced = false;
-	private int skip = -1;
-	private int limit = -1;
-
-	private boolean isPing = false;
+	private boolean deferred    = false;
+	private boolean isSuperuser = false;
+	private boolean sliced      = false;
+	private int skip            = -1;
+	private int limit           = -1;
+	private int skipped         = 0;
+	private boolean isPing      = false;
 
 	public QueryContext() {
+	}
+
+	/**
+	 * Creates a QueryContext for a query that will not start to execute until
+	 * hasNext() has been called on the Iterable. This setting can be used to
+	 * setup a query outside of a transaction and run the actual query when a
+	 * transaction context exists.
+	 *
+	 * @param deferred
+	 */
+	public QueryContext(final boolean deferred) {
+		this.deferred = deferred;
+	}
+
+	public QueryContext page(final int pageSize, final int page) {
+
+		sliced = true;
+		skip   = (page - 1) * pageSize;
+		limit  = pageSize;
+
+		return this;
 	}
 
 	public QueryContext slice(final int from, final int to) {
 
 		sliced = true;
-		skip = from;
-		limit = to - from;
+		skip   = from;
+		limit  = to - from;
 
 		return this;
 	}
@@ -53,6 +76,14 @@ public class QueryContext {
 		return limit;
 	}
 
+	public int getPage() {
+		return (skip / Math.max(1, limit)) + 1;
+	}
+
+	public int getPageSize() {
+		return limit;
+	}
+
 	public QueryContext isPing(final boolean isPing) {
 		this.isPing = isPing;
 		return this;
@@ -62,4 +93,23 @@ public class QueryContext {
 		return this.isPing;
 	}
 
+	public void setSkipped(final int skipped) {
+		this.skipped = skipped;
+	}
+
+	public int getSkipped() {
+		return skipped;
+	}
+
+	public void setIsSuperuser(final boolean isSuperuser) {
+		this.isSuperuser = isSuperuser;
+	}
+
+	public boolean isSuperuser() {
+		return isSuperuser;
+	}
+
+	public boolean isDeferred() {
+		return deferred;
+	}
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -66,7 +66,7 @@ public class FlowAggregate extends FlowNode implements Aggregation, DataSource, 
 
 				Object result = Scripting.evaluate(context.getActionContext(securityContext, this), this, "${" + _script.trim() + "}", "FlowAggregate(" + getUuid() + ")");
 
-					context.setData(getUuid(), result);
+				context.setData(getUuid(), result);
 
 			}
 

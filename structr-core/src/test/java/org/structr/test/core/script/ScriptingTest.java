@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -37,6 +37,13 @@ import java.util.Random;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.structr.api.config.Settings;
+import org.structr.api.graph.Cardinality;
+import org.structr.api.schema.JsonFunctionProperty;
+import org.structr.api.schema.JsonObjectType;
+import org.structr.api.schema.JsonReferenceType;
+import org.structr.api.schema.JsonSchema;
+import org.structr.api.schema.JsonType;
 import org.structr.api.util.Iterables;
 import org.structr.common.AccessControllable;
 import org.structr.common.AccessMode;
@@ -52,7 +59,6 @@ import org.structr.core.app.StructrApp;
 import org.structr.core.entity.AbstractNode;
 import org.structr.core.entity.Group;
 import org.structr.core.entity.Principal;
-import org.structr.core.entity.Relation.Cardinality;
 import org.structr.core.entity.SchemaMethod;
 import org.structr.core.entity.SchemaNode;
 import org.structr.core.entity.SchemaProperty;
@@ -74,11 +80,6 @@ import org.structr.schema.ConfigurationProvider;
 import org.structr.schema.action.ActionContext;
 import org.structr.schema.action.Actions;
 import org.structr.schema.export.StructrSchema;
-import org.structr.schema.json.JsonFunctionProperty;
-import org.structr.schema.json.JsonObjectType;
-import org.structr.schema.json.JsonReferenceType;
-import org.structr.schema.json.JsonSchema;
-import org.structr.schema.json.JsonType;
 import org.structr.test.common.StructrTest;
 import org.structr.test.core.entity.TestFour;
 import org.structr.test.core.entity.TestOne;
@@ -86,6 +87,7 @@ import org.structr.test.core.entity.TestOne.Status;
 import org.structr.test.core.entity.TestSix;
 import org.structr.test.core.entity.TestThree;
 import org.structr.test.core.entity.TestTwo;
+import org.testng.Assert;
 import static org.testng.AssertJUnit.assertEquals;
 import static org.testng.AssertJUnit.assertNotNull;
 import static org.testng.AssertJUnit.assertNull;
@@ -669,6 +671,7 @@ public class ScriptingTest extends StructrTest {
 		final String numberString1        = numberFormat1.format(2.234);
 		final String numberString2        = numberFormat2.format(2.234);
 		final String numberString3        = numberFormat3.format(2.234);
+		final List<String> testSixNames   = new LinkedList<>();
 		NodeInterface template            = null;
 		NodeInterface template2           = null;
 		TestOne testOne                   = null;
@@ -697,12 +700,17 @@ public class ScriptingTest extends StructrTest {
 
 			for (final TestSix testSix : testSixs) {
 
-				testSix.setProperty(TestSix.name, "TestSix" + StringUtils.leftPad(Integer.toString(index), 2, "0"));
+				final String name = "TestSix" + StringUtils.leftPad(Integer.toString(index), 2, "0");
+
+				testSix.setProperty(TestSix.name, name);
 				testSix.setProperty(TestSix.index, index);
 				testSix.setProperty(TestSix.date, cal.getTime());
 
 				index++;
 				cal.add(Calendar.DAY_OF_YEAR, 3);
+
+				// build list of names
+				testSixNames.add(name);
 			}
 
 			// create mail template
@@ -836,6 +844,10 @@ public class ScriptingTest extends StructrTest {
 			assertEquals("Invalid complement() result", "[]", Scripting.replaceVariables(ctx, testOne, "${complement(merge('one', 'two', 'three'), 'one', merge('two', 'three', 'four'))}"));
 			assertEquals("Invalid complement() result", "[two]", Scripting.replaceVariables(ctx, testOne, "${complement(merge('one', 'two', 'three'), merge('one', 'four', 'three'))}"));
 
+			assertEquals("Invalid complement() result", "[two, two]", Scripting.replaceVariables(ctx, testOne, "${complement(merge('one', 'two', 'three', 'two'), merge('one', 'four', 'three'))}"));
+			assertEquals("Invalid complement() result", "[one]", Scripting.replaceVariables(ctx, testOne, "${complement(merge('one', 'two', 'three', 'two'), merge('two', 'four', 'three'))}"));
+			assertEquals("Invalid complement() result", "[one, three]", Scripting.replaceVariables(ctx, testOne, "${complement(merge('one', 'two', 'three', 'two'), 'two')}"));
+
 			// join
 			assertEquals("Invalid join() result", "one,two,three", Scripting.replaceVariables(ctx, testOne, "${join(merge(\"one\", \"two\", \"three\"), \",\")}"));
 
@@ -912,6 +924,16 @@ public class ScriptingTest extends StructrTest {
 			assertEquals("Invalid contains() result", "true", Scripting.replaceVariables(ctx, testOne, "${contains(this.manyToManyTestSixs, first(find('TestSix')))}"));
 			assertEquals("Invalid contains() result", "false", Scripting.replaceVariables(ctx, testOne, "${contains(this.manyToManyTestSixs, first(find('TestFive')))}"));
 
+			// starts_with
+			assertEquals("Invalid starts_with() result", "true", Scripting.replaceVariables(ctx, testOne, "${starts_with(null, null)}"));
+			assertEquals("Invalid starts_with() result", "false", Scripting.replaceVariables(ctx, testOne, "${starts_with(null, 'abc')}"));
+			assertEquals("Invalid starts_with() result", "false", Scripting.replaceVariables(ctx, testOne, "${starts_with('abcdef', null)}"));
+			assertEquals("Invalid starts_with() result", "true", Scripting.replaceVariables(ctx, testOne, "${starts_with('abcdef', 'abc')}"));
+			assertEquals("Invalid starts_with() result", "false", Scripting.replaceVariables(ctx, testOne, "${starts_with('ABCDEF', 'abc')}"));
+			assertEquals("Invalid starts_with() result", "true", Scripting.replaceVariables(ctx, testOne, "${starts_with(merge('a', 'b'), 'a')}"));
+			assertEquals("Invalid starts_with() result", "false", Scripting.replaceVariables(ctx, testOne, "${starts_with(merge('c', 'a', 'b'), 'a')}"));
+			assertEquals("Invalid starts_with() result", "false", Scripting.replaceVariables(ctx, testOne, "${starts_with(merge('abc', 'b'), 'a')}"));
+
 			// substring
 			assertEquals("Invalid substring() result", "for", Scripting.replaceVariables(ctx, testOne, "${substring(this.name, 19, 3)}"));
 			assertEquals("Invalid substring() result", "", Scripting.replaceVariables(ctx, testOne, "${substring(this.name, -1, -1)}"));
@@ -923,6 +945,7 @@ public class ScriptingTest extends StructrTest {
 			assertEquals("Invalid substring() result", "", Scripting.replaceVariables(ctx, testOne, "${substring('a-nice-little-name-for-my-test-object', -1, -1)}"));
 			assertEquals("Invalid substring() result", "", Scripting.replaceVariables(ctx, testOne, "${substring('a-nice-little-name-for-my-test-object', 100, -1)}"));
 			assertEquals("Invalid substring() result", "", Scripting.replaceVariables(ctx, testOne, "${substring('a-nice-little-name-for-my-test-object', 5, -2)}"));
+			assertEquals("Invalid substring() result", "y-short", Scripting.replaceVariables(ctx, testOne, "${substring('very-short', 3, 200)}"));
 
 			// length
 			assertEquals("Invalid length() result", "37", Scripting.replaceVariables(ctx, testOne, "${length(this.name)}"));
@@ -994,6 +1017,14 @@ public class ScriptingTest extends StructrTest {
 
 			// functions CAN handle variable values with newlines!
 			assertEquals("Invalid if(empty()) result", "false",  Scripting.replaceVariables(ctx, testOne,  "${if(empty(this.anotherString), \"true\", \"false\")}"));
+
+			// empty in JavaScript
+			assertEquals("Invalid empty() result", "true",  Scripting.replaceVariables(ctx, testOne, "${{return $.empty(\"\")}}"));
+			assertEquals("Invalid empty() result", "false", Scripting.replaceVariables(ctx, testOne, "${{return $.empty(\" \")}}"));
+			assertEquals("Invalid empty() result", "false", Scripting.replaceVariables(ctx, testOne, "${{return $.empty(\"   \")}}"));
+			assertEquals("Invalid empty() result", "false", Scripting.replaceVariables(ctx, testOne, "${{return $.empty(\"xyz\")}}"));
+			assertEquals("Invalid empty() result", "true",  Scripting.replaceVariables(ctx, testOne, "${{return $.empty([])}}"));
+			assertEquals("Invalid empty() result", "true",  Scripting.replaceVariables(ctx, testOne, "${{return $.empty({})}}"));
 
 			// equal
 			assertEquals("Invalid equal() result", "true",  Scripting.replaceVariables(ctx, testOne, "${equal(this.id, this.id)}"));
@@ -1351,7 +1382,7 @@ public class ScriptingTest extends StructrTest {
 			assertEquals("Invalid set_locale() result", "", Scripting.replaceVariables(ctx, testOne, "${set_locale('us')}"));
 			assertEquals("Invalid date_format() result", "01. Oct 2017", Scripting.replaceVariables(ctx, testOne, "${date_format(parse_date('01.10.2017', 'dd.MM.yyyy'), 'dd. MMM yyyy')}"));
 			assertEquals("Invalid set_locale() result", "", Scripting.replaceVariables(ctx, testOne, "${set_locale('de')}"));
-			assertEquals("Invalid date_format() result", "01. Okt 2017", Scripting.replaceVariables(ctx, testOne, "${date_format(parse_date('01.10.2017', 'dd.MM.yyyy'), 'dd. MMM yyyy')}"));
+			assertEquals("Invalid date_format() result", "01. Okt. 2017", Scripting.replaceVariables(ctx, testOne, "${date_format(parse_date('01.10.2017', 'dd.MM.yyyy'), 'dd. MMM yyyy')}"));
 			ctx.setLocale(locale);
 
 			// date_format with null
@@ -1475,24 +1506,6 @@ public class ScriptingTest extends StructrTest {
 			assertEquals("Invalid nth() result",   testSixs.get( 9).toString(), Scripting.replaceVariables(ctx, testOne, "${nth(this.manyToManyTestSixs,  9)}"));
 			assertEquals("Invalid nth() result",   testSixs.get(12).toString(), Scripting.replaceVariables(ctx, testOne, "${nth(this.manyToManyTestSixs, 12)}"));
 			assertEquals("Invalid nth() result",   "", Scripting.replaceVariables(ctx, testOne, "${nth(this.manyToManyTestSixs, 21)}"));
-
-			// slice
-			final Object sliceResult = Scripting.evaluate(ctx, testOne, "${slice(this.manyToManyTestSixs, 0, 5)}", "slice test");
-			assertTrue("Invalid slice() result, must return collection for valid results", sliceResult instanceof Collection);
-			assertTrue("Invalid slice() result, must return list for valid results", sliceResult instanceof List);
-			final List sliceResultList = (List)sliceResult;
-			assertEquals("Invalid slice() result, must return a list of 5 objects", 5, sliceResultList.size());
-
-			// test error cases
-			assertEquals("Invalid slice() result for invalid inputs", "", Scripting.replaceVariables(ctx, testOne, "${slice(this.alwaysNull, 1, 2)}"));
-			assertEquals("Invalid slice() result for invalid inputs", "", Scripting.replaceVariables(ctx, testOne, "${slice(this.manyToManyTestSixs, -1, 1)}"));
-			assertEquals("Invalid slice() result for invalid inputs", "", Scripting.replaceVariables(ctx, testOne, "${slice(this.manyToManyTestSixs, 2, 1)}"));
-
-			// test with interval larger than number of elements
-			assertEquals("Invalid slice() result for invalid inputs",
-				Iterables.toList(testOne.getProperty(TestOne.manyToManyTestSixs)).toString(),
-				Scripting.replaceVariables(ctx, testOne, "${slice(this.manyToManyTestSixs, 0, 1000)}")
-			);
 
 			// find with range
 			assertEquals("Invalid find range result",  4, ((List)Scripting.evaluate(ctx, testOne, "${find('TestSix', 'index', range(   2,    5))}", "range test")).size());
@@ -1731,7 +1744,7 @@ public class ScriptingTest extends StructrTest {
 			// test multiple nested dot-separated properties (this.parent.parent.parent)
 			assertEquals("Invalid multilevel property expression result", "false", Scripting.replaceVariables(ctx, testOne, "${empty(this.testThree.testOne.testThree)}"));
 
-			// test extract() with additional evaluation function
+			// test filter() with additional evaluation function
 			assertEquals("Invalid filter() result", "1",  Scripting.replaceVariables(ctx, testOne, "${size(filter(this.manyToManyTestSixs, equal(data.index, 4)))}"));
 			assertEquals("Invalid filter() result", "9",  Scripting.replaceVariables(ctx, testOne, "${size(filter(this.manyToManyTestSixs, gt(data.index, 10)))}"));
 			assertEquals("Invalid filter() result", "10", Scripting.replaceVariables(ctx, testOne, "${size(filter(this.manyToManyTestSixs, gte(data.index, 10)))}"));
@@ -1926,7 +1939,10 @@ public class ScriptingTest extends StructrTest {
 			assertEquals("Invalid string array access result with contains()", "true", Scripting.replaceVariables(ctx, testFour, "${contains(this.stringArrayProperty, 'two')}"));
 			assertEquals("Invalid string array access result with contains()", "false", Scripting.replaceVariables(ctx, testFour, "${contains(this.stringArrayProperty, 'five')}"));
 
-			// sort
+			// sort on arrays in JS
+			assertEquals("Invalid sort result", "[TestSix19, TestSix18, TestSix17, TestSix16, TestSix15, TestSix14, TestSix13, TestSix12, TestSix11, TestSix10, TestSix09, TestSix08, TestSix07, TestSix06, TestSix05, TestSix04, TestSix03, TestSix02, TestSix01, TestSix00]", Scripting.replaceVariables(ctx, null, "${{ return $.extract($.sort($.find('TestOne')[0].manyToManyTestSixs, 'name', true), 'name'); }}"));
+
+			// sort with extract
 			assertEquals("Invalid sort result", "[b, a, c]", Scripting.replaceVariables(ctx, null, "${merge('b', 'a', 'c')}"));
 			assertEquals("Invalid sort result", "[a, b, c]", Scripting.replaceVariables(ctx, null, "${sort(merge('b', 'a', 'c'))}"));
 			assertEquals("Invalid sort result", "",          Scripting.replaceVariables(ctx, null, "${sort()}"));
@@ -1934,6 +1950,10 @@ public class ScriptingTest extends StructrTest {
 			assertEquals("Invalid sort result", "[A-nice-little-name-for-my-test-object, testThree_name, testTwo_name]", Scripting.replaceVariables(ctx, testOne, "${extract(sort(merge(this, this.testTwo, this.testThree), 'name'), 'name')}"));
 			assertEquals("Invalid sort result", "[A-nice-little-name-for-my-test-object, testThree_name, testTwo_name]", Scripting.replaceVariables(ctx, testOne, "${extract(sort(merge(this.testTwo, this, this.testThree), 'name'), 'name')}"));
 			assertEquals("Invalid sort result", "[A-nice-little-name-for-my-test-object, testThree_name, testTwo_name]", Scripting.replaceVariables(ctx, testOne, "${extract(sort(merge(this.testTwo, this.testThree, this), 'name'), 'name')}"));
+
+			// extract
+			assertEquals("Invalid extract() result for relationship property", "[[" + StringUtils.join(testSixs, ", ") +  "]]", Scripting.replaceVariables(ctx, testOne, "${extract(find('TestOne'), 'manyToManyTestSixs')}"));
+			assertEquals("Invalid extract() result for relationship property", "[" + StringUtils.join(testSixNames, ", ") +  "]", Scripting.replaceVariables(ctx, testOne, "${extract(unwind(extract(find('TestOne'), 'manyToManyTestSixs')), 'name')}"));
 
 			// find
 			assertEquals("Invalid find() result for empty values", testThree.getUuid(), Scripting.replaceVariables(ctx, testOne, "${first(find('TestThree', 'oneToOneTestSix', this.alwaysNull))}"));
@@ -2901,22 +2921,12 @@ public class ScriptingTest extends StructrTest {
 			final Map<String, Object> projectModifications  = getLoggedModifications(p);
 			final Map<String, Object> taskModifications     = getLoggedModifications(t);
 
-			assertMapPathValueIs(customerModifications, "before.project",  null);
-			assertMapPathValueIs(customerModifications, "before.grantees", null);
-			assertMapPathValueIs(customerModifications, "after.project",   null);
-			assertMapPathValueIs(customerModifications, "after.grantees",  new LinkedList<>());
 			assertMapPathValueIs(customerModifications, "added.project",   p.getUuid());
 			assertMapPathValueIs(customerModifications, "removed",         new LinkedHashMap<>());
 			assertMapPathValueIs(customerModifications, "added.grantees",  Arrays.asList(tester.getUuid()));
 
 			assertMapPathValueIs(projectModifications, "before.name",     "Testproject");
-			assertMapPathValueIs(projectModifications, "before.tasks",    null);
-			assertMapPathValueIs(projectModifications, "before.customer", null);
-			assertMapPathValueIs(projectModifications, "before.grantees", null);
 			assertMapPathValueIs(projectModifications, "after.name",     "newName");
-			assertMapPathValueIs(projectModifications, "after.tasks",    new LinkedList<>());
-			assertMapPathValueIs(projectModifications, "after.customer", null);
-			assertMapPathValueIs(projectModifications, "after.grantees", new LinkedList<>());
 			assertMapPathValueIs(projectModifications, "added.customer", c.getUuid());
 			assertMapPathValueIs(projectModifications, "removed",        new LinkedHashMap<>());
 
@@ -2929,8 +2939,6 @@ public class ScriptingTest extends StructrTest {
 			assertMapPathValueIs(projectModifications, "added.grantees",    Arrays.asList(tester.getUuid()));
 
 
-			assertMapPathValueIs(taskModifications, "before.project",  null);
-			assertMapPathValueIs(taskModifications, "after.project",   null);
 			assertMapPathValueIs(taskModifications, "added.project",   p.getUuid());
 			assertMapPathValueIs(taskModifications, "removed",         new LinkedHashMap<>());
 
@@ -2969,22 +2977,127 @@ public class ScriptingTest extends StructrTest {
 			final Map<String, Object> projectModifications  = getLoggedModifications(p);
 			final Map<String, Object> taskModifications     = getLoggedModifications(t);
 
-			assertMapPathValueIs(customerModifications, "before.project",  null);
-			assertMapPathValueIs(customerModifications, "after.project",   null);
 			assertMapPathValueIs(customerModifications, "added",           new LinkedHashMap<>());
 			assertMapPathValueIs(customerModifications, "removed.project", p.getUuid());
 
-			assertMapPathValueIs(projectModifications, "before.tasks",     null);
-			assertMapPathValueIs(projectModifications, "before.customer",  null);
-			assertMapPathValueIs(projectModifications, "after.tasks",      new LinkedList<>());
-			assertMapPathValueIs(projectModifications, "after.customer",   null);
 			assertMapPathValueIs(projectModifications, "removed.customer", c.getUuid());
 			assertMapPathValueIs(projectModifications, "added",            new LinkedHashMap<>());
 
-			assertMapPathValueIs(taskModifications, "before.project",  null);
-			assertMapPathValueIs(taskModifications, "after.project",   null);
 			assertMapPathValueIs(taskModifications, "added.project",   p.getUuid());
 			assertMapPathValueIs(taskModifications, "removed",         new LinkedHashMap<>());
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testScriptCodeWithNewlines() {
+
+		// setup
+		try (final Tx tx = app.tx()) {
+
+			final JsonSchema schema = StructrSchema.createFromDatabase(app);
+
+			createTestType(schema, "Test1", " 	 set(this, 'c', 'passed')  ",   "   \n 	set(this, 's', 'passed')\n	\n    \n  ", "StructrScript with newlines");
+			createTestType(schema, "Test2", "set(this, 'c', 'passed')",             "set(this, 's', 'passed')",                  "StructrScript without newlines");
+			createTestType(schema, "Test3", "   { Structr.this.c = 'passed'; }   ", " 	 \n	  { Structr.this.s = 'passed'; }\n\n	\n    \n "  ,    "JavaScript with newlines");
+			createTestType(schema, "Test4", "{ Structr.this.c = 'passed'; }",       "{ Structr.this.s = 'passed'; }",            "JavaScript without newlines");
+
+			StructrSchema.extendDatabaseSchema(app, schema);
+
+			tx.success();
+
+		} catch (Throwable fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		final Class type1 = StructrApp.getConfiguration().getNodeEntityClass("Test1");
+		final Class type2 = StructrApp.getConfiguration().getNodeEntityClass("Test2");
+		final Class type3 = StructrApp.getConfiguration().getNodeEntityClass("Test3");
+		final Class type4 = StructrApp.getConfiguration().getNodeEntityClass("Test4");
+
+		// test onCreate
+		try (final Tx tx = app.tx()) {
+
+			app.create(type1, "test1");
+			app.create(type2, "test2");
+			app.create(type3, "test3");
+			app.create(type4, "test4");
+
+			tx.success();
+
+		} catch (Throwable fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		// test onCreate
+		try (final Tx tx = app.tx()) {
+
+			final GraphObject test1 = app.nodeQuery(type1).getFirst();
+                        final GraphObject test2 = app.nodeQuery(type2).getFirst();
+			final GraphObject test3 = app.nodeQuery(type3).getFirst();
+                        final GraphObject test4 = app.nodeQuery(type4).getFirst();
+
+			assertEquals("Newlines in script code not trimmed correctly", "passed", (String)test1.getProperty("c"));
+			assertEquals("Newlines in script code not trimmed correctly", "passed", (String)test2.getProperty("c"));
+			assertEquals("Newlines in script code not trimmed correctly", "passed", (String)test3.getProperty("c"));
+			assertEquals("Newlines in script code not trimmed correctly", "passed", (String)test4.getProperty("c"));
+
+			assertNull("onSave method called for creation", test1.getProperty("s"));
+			assertNull("onSave method called for creation", test2.getProperty("s"));
+			assertNull("onSave method called for creation", test3.getProperty("s"));
+			assertNull("onSave method called for creation", test4.getProperty("s"));
+
+			test1.setProperty(AbstractNode.name, "modified");
+			test2.setProperty(AbstractNode.name, "modified");
+			test3.setProperty(AbstractNode.name, "modified");
+			test4.setProperty(AbstractNode.name, "modified");
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		// test onSave
+		try (final Tx tx = app.tx()) {
+
+			final GraphObject test1 = app.nodeQuery(type1).getFirst();
+                        final GraphObject test2 = app.nodeQuery(type2).getFirst();
+			final GraphObject test3 = app.nodeQuery(type3).getFirst();
+                        final GraphObject test4 = app.nodeQuery(type4).getFirst();
+
+			assertEquals("Newlines in script code not trimmed correctly", "passed", (String)test1.getProperty("s"));
+			assertEquals("Newlines in script code not trimmed correctly", "passed", (String)test2.getProperty("s"));
+			assertEquals("Newlines in script code not trimmed correctly", "passed", (String)test3.getProperty("s"));
+			assertEquals("Newlines in script code not trimmed correctly", "passed", (String)test4.getProperty("s"));
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		// test actions
+		try (final Tx tx = app.tx()) {
+
+			assertEquals("Newlines in script code not trimmed correctly", "passed", Actions.execute(securityContext, null, "	 ${ 'passed' }	 ",    "StructrScript with whitespace"));
+			assertEquals("Newlines in script code not trimmed correctly", "passed", Actions.execute(securityContext, null, "${ 'passed' }",                "StructrScript without whitespace"));
+			assertEquals("Newlines in script code not trimmed correctly", "passed", Actions.execute(securityContext, null, "  ${{ return 'passed'; }}   ", "JavaScript with whitespace"));
+			assertEquals("Newlines in script code not trimmed correctly", "passed", Actions.execute(securityContext, null, "${{ return 'passed'; }}",      "JavaScript without whitespace"));
 
 			tx.success();
 
@@ -3342,7 +3455,7 @@ public class ScriptingTest extends StructrTest {
 
 			int index = 1;
 
-			for (final Group group : app.nodeQuery(Group.class).getResultStream()) {
+			for (final Group group : app.nodeQuery(Group.class).getAsList()) {
 
 				System.out.println(group.getName());
 
@@ -3482,7 +3595,7 @@ public class ScriptingTest extends StructrTest {
 
 			} catch (FrameworkException fex) { }
 
-			assertEquals("find() with namespaced predicates return wrong result", 1, ((List)Scripting.evaluate(ctx, null, "${find('Project', empty('name'))}", "testFindNewSyntax")).size());
+			//assertEquals("find() with namespaced predicates return wrong result", 1, ((List)Scripting.evaluate(ctx, null, "${find('Project', empty('name'))}", "testFindNewSyntax")).size());
 			assertEquals("find() with namespaced predicates return wrong result", 2, ((List)Scripting.evaluate(ctx, null, "${find('Project', or(empty('name'), equals('name', 'group2')))}", "testFindNewSyntax")).size());
 			assertEquals("find() with namespaced predicates return wrong result", 3, ((List)Scripting.evaluate(ctx, null, "${find('Project', contains('name2', 'e'), contains('name2', 'e'), contains('name2', 'e'))}", "testFindNewSyntax")).size());
 			assertEquals("find() with namespaced predicates return wrong result", 2, ((List)Scripting.evaluate(ctx, null, "${find('Project', and(equals('age', range(0, 35))))}", "testFindNewSyntax")).size());
@@ -3495,6 +3608,171 @@ public class ScriptingTest extends StructrTest {
 			assertEquals("find() with namespaced predicates return wrong result", 0, ((List)Scripting.evaluate(ctx, null, "${find('Project', and(equals('name1', 'structr'), equals('name2', 'structr')))}", "testFindNewSyntax")).size());
 			assertEquals("find() with namespaced predicates return wrong result", 2, ((List)Scripting.evaluate(ctx, null, "${find('Project', or(equals('age', 22), equals('age', 44)))}", "testFindNewSyntax")).size());
 			assertEquals("find() with namespaced predicates return wrong result", 2, ((List)Scripting.evaluate(ctx, null, "${find('Project', and(equals('name3', 'other'), or(equals('age', 22), equals('age', 44))))}", "testFindNewSyntax")).size());
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fex.printStackTrace();
+			fail("Unexpected exception");
+		}
+	}
+
+	@Test
+	public void testAdvancedFindPrivilegedInJavaScript() {
+
+		// setup
+		try (final Tx tx = app.tx()) {
+
+			final JsonSchema schema = StructrSchema.createFromDatabase(app);
+			schema.addType("Test");
+
+			final JsonType project  = schema.addType("Project");
+
+			project.addStringProperty("name1").setIndexed(true);
+			project.addStringProperty("name2").setIndexed(true);
+			project.addStringProperty("name3").setIndexed(true);
+
+			project.addIntegerProperty("age").setIndexed(true);
+			project.addIntegerProperty("count").setIndexed(true);
+
+			StructrSchema.extendDatabaseSchema(app, schema);
+
+			tx.success();
+
+		} catch (Throwable fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+
+		final ActionContext ctx = new ActionContext(securityContext);
+		final Class testType    = StructrApp.getConfiguration().getNodeEntityClass("Test");
+		final Class type        = StructrApp.getConfiguration().getNodeEntityClass("Project");
+		final PropertyKey name1 = StructrApp.key(type, "name1");
+                final PropertyKey name2 = StructrApp.key(type, "name2");
+                final PropertyKey name3 = StructrApp.key(type, "name3");
+                final PropertyKey age   = StructrApp.key(type, "age");
+                final PropertyKey count = StructrApp.key(type, "count");
+
+		String group1 = null;
+		String group2 = null;
+		String group3 = null;
+
+		// setup
+		try (final Tx tx = app.tx()) {
+
+			group1 = app.create(type,
+				new NodeAttribute<>(AbstractNode.name, "group1"),
+				new NodeAttribute<>(name1, "structr"),
+				new NodeAttribute<>(name2, "test"),
+				new NodeAttribute<>(name3, "other"),
+				new NodeAttribute<>(age,    22),
+				new NodeAttribute<>(count, 100)
+			).getUuid();
+
+			group2 = app.create(type,
+				new NodeAttribute<>(AbstractNode.name, "group2"),
+				new NodeAttribute<>(name1, "structr"),
+				new NodeAttribute<>(name2, "test"),
+				new NodeAttribute<>(name3, "other"),
+				new NodeAttribute<>(age,    33),
+				new NodeAttribute<>(count, 102)
+			).getUuid();
+
+			group3 = app.create(type,
+				new NodeAttribute<>(name1, "structr"),
+				new NodeAttribute<>(name2, "other"),
+				new NodeAttribute<>(name3, "other"),
+				new NodeAttribute<>(age,    44),
+				new NodeAttribute<>(count, 104)
+			).getUuid();
+
+			for (int i=0; i<100; i++) {
+				createTestNode(testType, "test" + StringUtils.leftPad(Integer.toString(i), 3, "0"));
+			}
+
+			tx.success();
+
+		} catch (Throwable fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		try (final Tx tx = app.tx()) {
+
+			final List<NodeInterface> result1 = (List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', { 'name2': $.contains('s') }, $.sort('name', true)); }}", "testFindNewSyntax");
+			final List<NodeInterface> result2 = (List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.sort('name', true)); }}", "testFindNewSyntax");
+			final List<NodeInterface> result3 = (List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.sort('name')); }}", "testFindNewSyntax");
+
+			final String testFunction = "${{\n" +
+			"    let users = $.find('Project', {\n" +
+			"            $and: {\n" +
+			"                'name1': 'structr',\n" +
+			"                'age': $.range(30, 50)\n" +
+			"            }\n" +
+			"        },\n" +
+			"        $.sort('name', true),\n" +
+			"        $.page(1, 10)\n" +
+			"    );\n" +
+			"    return users;\n" +
+			"}}";
+
+			final Object result4Object        = Scripting.evaluate(ctx, null, testFunction, "testFindNewSyntax");
+			final List<NodeInterface> result4 = (List)result4Object;
+
+			assertEquals("Advanced find() does not filter correctly", 2, result1.size());
+			assertEquals("Advanced find() does not filter correctly", result1.get(0).getUuid(), group2);
+			assertEquals("Advanced find() does not filter correctly", result1.get(1).getUuid(), group1);
+
+			assertEquals("sort() in advanced find() does not sort correctly", result2.get(0).getUuid(), group3);
+			assertEquals("sort() in advanced find() does not sort correctly", result2.get(1).getUuid(), group2);
+			assertEquals("sort() in advanced find() does not sort correctly", result2.get(2).getUuid(), group1);
+
+			assertEquals("sort() in advanced find() does not sort correctly", result3.get(0).getUuid(), group1);
+			assertEquals("sort() in advanced find() does not sort correctly", result3.get(1).getUuid(), group2);
+			assertEquals("sort() in advanced find() does not sort correctly", result3.get(2).getUuid(), group3);
+
+			assertEquals("Advanced find() does not filter correctly", 2, result4.size());
+			assertEquals("Advanced find() does not filter correctly", result4.get(0).getUuid(), group3);
+			assertEquals("Advanced find() does not filter correctly", result4.get(1).getUuid(), group2);
+
+			assertEquals("Advanced find() returns wrong result", 1, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', { name: $.contains('2') }); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 3, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.contains('name2', 'e')); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 1, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', { name: 'group1', name1: 'structr', name2: 'test' }); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 1, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.empty('name')); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 2, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.or($.empty('name'), $.equals('name', 'group2'))); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 3, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.contains('name2', 'e'), $.contains('name2', 'e'), $.contains('name2', 'e')); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 2, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.and($.equals('age', $.range(0, 35)))); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 1, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.equals('age', $.range(0, 35)), $.equals('name', 'group2')); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 1, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.and($.equals('age', $.range(0, 35)), $.equals('name', 'group2'))); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 3, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.and($.contains('name2', 'e'))); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 1, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.and($.equals('name', 'group1'))); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 1, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.and($.equals('name', 'group1'), $.equals('name1', 'structr'))); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 2, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.and($.equals('name1', 'structr'), $.equals('name2', 'test'))); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 0, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.and($.equals('name1', 'structr'), $.equals('name2', 'structr'))); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 2, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.or($.equals('age', 22), $.equals('age', 44))); }}", "testFindNewSyntax")).size());
+			assertEquals("Advanced find() returns wrong result", 2, ((List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Project', $.and($.equals('name3', 'other'), $.or($.equals('age', 22), $.equals('age', 44)))); }}", "testFindNewSyntax")).size());
+
+			final List<NodeInterface> page1 = (List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Test', $.sort('name'), $.page(1, 10)); }}", "testFindNewSyntax");
+			final List<NodeInterface> page2 = (List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Test', $.sort('name'), $.page(1, 5)); }}", "testFindNewSyntax");
+			final List<NodeInterface> page3 = (List)Scripting.evaluate(ctx, null, "${{ return $.findPrivileged('Test', $.sort('name'), $.page(3, 5)); }}", "testFindNewSyntax");
+
+			assertEquals("Advanced find() with sort() and page() returns wrong result", 10, page1.size());
+			assertEquals("Advanced find() with sort() and page() returns wrong result", "test000", page1.get(0).getName());
+			assertEquals("Advanced find() with sort() and page() returns wrong result", "test001", page1.get(1).getName());
+			assertEquals("Advanced find() with sort() and page() returns wrong result", "test009", page1.get(9).getName());
+
+			assertEquals("Advanced find() with sort() and page() returns wrong result", 5, page2.size());
+			assertEquals("Advanced find() with sort() and page() returns wrong result", "test000", page2.get(0).getName());
+			assertEquals("Advanced find() with sort() and page() returns wrong result", "test001", page2.get(1).getName());
+			assertEquals("Advanced find() with sort() and page() returns wrong result", "test004", page2.get(4).getName());
+
+			assertEquals("Advanced find() with sort() and page() returns wrong result", 5, page3.size());
+			assertEquals("Advanced find() with sort() and page() returns wrong result", "test010", page3.get(0).getName());
+			assertEquals("Advanced find() with sort() and page() returns wrong result", "test011", page3.get(1).getName());
+			assertEquals("Advanced find() with sort() and page() returns wrong result", "test014", page3.get(4).getName());
 
 			tx.success();
 
@@ -3589,6 +3867,8 @@ public class ScriptingTest extends StructrTest {
 
 		try (final Tx tx = app.tx()) {
 
+			Settings.CypherDebugLogging.setValue(true);
+
 			final List<NodeInterface> result1 = (List)Scripting.evaluate(ctx, null, "${{ return $.find('Project', { 'name2': $.contains('s') }, $.sort('name', true)); }}", "testFindNewSyntax");
 			final List<NodeInterface> result2 = (List)Scripting.evaluate(ctx, null, "${{ return $.find('Project', $.sort('name', true)); }}", "testFindNewSyntax");
 			final List<NodeInterface> result3 = (List)Scripting.evaluate(ctx, null, "${{ return $.find('Project', $.sort('name')); }}", "testFindNewSyntax");
@@ -3608,6 +3888,19 @@ public class ScriptingTest extends StructrTest {
 
 			final Object result4Object        = Scripting.evaluate(ctx, null, testFunction, "testFindNewSyntax");
 			final List<NodeInterface> result4 = (List)result4Object;
+
+			// make results visible in log file
+			System.out.println("#### result1");
+			result1.stream().forEach(n -> System.out.println(n.getProperty(AbstractNode.name)));
+
+			System.out.println("#### result2");
+			result2.stream().forEach(n -> System.out.println(n.getProperty(AbstractNode.name)));
+
+			System.out.println("#### result3");
+			result3.stream().forEach(n -> System.out.println(n.getProperty(AbstractNode.name)));
+
+			System.out.println("#### result4");
+			result4.stream().forEach(n -> System.out.println(n.getProperty(AbstractNode.name)));
 
 			assertEquals("Advanced find() does not filter correctly", 2, result1.size());
 			assertEquals("Advanced find() does not filter correctly", result1.get(0).getUuid(), group2);
@@ -3660,6 +3953,9 @@ public class ScriptingTest extends StructrTest {
 			assertEquals("Advanced find() with sort() and page() returns wrong result", "test010", page3.get(0).getName());
 			assertEquals("Advanced find() with sort() and page() returns wrong result", "test011", page3.get(1).getName());
 			assertEquals("Advanced find() with sort() and page() returns wrong result", "test014", page3.get(4).getName());
+
+
+			Settings.CypherDebugLogging.setValue(false);
 
 			tx.success();
 
@@ -3938,6 +4234,789 @@ public class ScriptingTest extends StructrTest {
 
 			fex.printStackTrace();
 			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testLoggingOfGraphObjects() {
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		// setup
+		try (final Tx tx = app.tx()) {
+
+			app.create(Group.class, "group1");
+			app.create(Group.class);
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		try (final Tx tx = app.tx()) {
+
+			final List<Group> groups = app.nodeQuery(Group.class).getAsList();
+
+			assertEquals("Invalid number of groups in test setup", 2, groups.size());
+
+			final Group group1    = groups.get(0);
+			final Group group2    = groups.get(1);
+			final String expected = "[" + group1.getUuid() + ", " + group2.getUuid() + "]";
+
+			assertEquals("Invalid print output", expected,         Scripting.evaluate(ctx, group1, "${print(find('Group'))}", "test1"));
+			assertEquals("Invalid print output", group1.getUuid(), Scripting.evaluate(ctx, group1, "${print(this)}", "test1"));
+			assertEquals("Invalid print output", "", Scripting.evaluate(ctx, group2, "${log(this)}", "test2"));
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testAssignmentOfStringArrayProperties() {
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		// setup
+		try (final Tx tx = app.tx()) {
+
+			final JsonSchema schema = StructrSchema.createFromDatabase(app);
+			final JsonType type     = schema.addType("Test");
+
+			type.addStringArrayProperty("test");
+
+			StructrSchema.extendDatabaseSchema(app, schema);
+
+			tx.success();
+
+		} catch (Throwable t) {
+
+			t.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		// setup 2
+		try (final Tx tx = app.tx()) {
+
+			final Class type      = StructrApp.getConfiguration().getNodeEntityClass("Test");
+			final PropertyKey key = StructrApp.key(type, "test");
+
+			app.create(type,
+				new NodeAttribute<>(AbstractNode.name, "source"),
+				new NodeAttribute<>(key, new String[] { "one", "two", "three" })
+			);
+
+			app.create(type,
+				new NodeAttribute<>(AbstractNode.name, "target")
+			);
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		// test
+		try (final Tx tx = app.tx()) {
+
+			Scripting.evaluate(ctx, null, "${{ var source = $.find('Test', { name: 'source' })[0]; var target = $.find('Test', { name: 'target' })[0]; target.test = source.test; }}", "test");
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testEmptyArrayProperty() {
+
+		try (final Tx tx = app.tx()) {
+
+			final JsonSchema schema = StructrSchema.createFromDatabase(app);
+
+			final JsonType testType = schema.addType("TestEmptyArrayPropertyType");
+			testType.addStringArrayProperty("arr");
+
+			StructrSchema.extendDatabaseSchema(app, schema);
+
+			tx.success();
+
+		} catch (FrameworkException ex) {
+			fail();
+		}
+
+
+		try (final Tx tx = app.tx()) {
+
+			final Class clazz = StructrApp.getConfiguration().getNodeEntityClass("TestEmptyArrayPropertyType");
+
+			NodeInterface node = app.create(clazz);
+
+			final ActionContext ac = new ActionContext(securityContext);
+
+			Scripting.evaluate(ac, node, "${{Structr.get('this').arr.push('test');}}", null);
+
+			String[] arr = (String[])node.getProperty(StructrApp.getConfiguration().getPropertyKeyForDatabaseName(clazz, "arr"));
+
+			Assert.assertEquals(1, arr.length);
+
+		} catch (FrameworkException ex) {
+
+			fail();
+		}
+	}
+
+	@Test
+	public void testDifferentArrayPropertyAssignmentAndPush() {
+
+		try (final Tx tx = app.tx()) {
+
+			final JsonSchema schema = StructrSchema.createFromDatabase(app);
+
+			final JsonType testType = schema.addType("ArrayPropertiesTest");
+			testType.addStringArrayProperty("strings");
+			testType.addIntegerArrayProperty("ints");
+			testType.addDoubleArrayProperty("doubles");
+			testType.addLongArrayProperty("longs");
+			testType.addBooleanArrayProperty("bools");
+			testType.addDateArrayProperty("dates");
+
+			StructrSchema.extendDatabaseSchema(app, schema);
+
+			tx.success();
+
+		} catch (FrameworkException ex) {
+			fail();
+		}
+
+
+		/**
+		 * Test using .push() on the empty object
+		 */
+		try (final Tx tx = app.tx()) {
+
+			final ActionContext ac = new ActionContext(securityContext);
+
+			Scripting.evaluate(ac, null, "${{"
+					+ "let n = $.create('ArrayPropertiesTest', {name: 'emptyTest'});"
+					+ "}}", null);
+
+			Scripting.evaluate(ac, null, "${{"
+					+ "let n = $.create('ArrayPropertiesTest', {name: 'emptyPushTest'});"
+					+ "n.strings.push('test');"
+					+ "n.ints.push(42);"
+					+ "n.doubles.push(42);"
+					+ "n.longs.push(42);"
+					+ "n.bools.push(true);"
+					+ "n.dates.push(new Date());"
+					+ "}}", null);
+
+			Scripting.evaluate(ac, null, "${{"
+					+ "let n = $.create('ArrayPropertiesTest', {name: 'emptySetTest'});"
+					+ "n.strings = ['a', 'b', 'c'];"
+					+ "n.ints = [3, 4, 5];"
+					+ "n.doubles = [3.14, 4, 5.05];"
+					+ "n.longs = [3, 4, 5];"
+					+ "n.bools = [true, false, true];"
+					+ "n.dates = [new Date(), $.get('now'), new Date()];"
+					+ "}}", null);
+
+			Scripting.evaluate(ac, null, "${{"
+					+ "let n = $.create('ArrayPropertiesTest', {name: 'setAndPushTest'});"
+					+ "n.strings = ['a', 'b', 'c'];"
+					+ "n.strings.push('d');"
+					+ "n.ints = [3, 4, 5];"
+					+ "n.ints.push(6);"
+					+ "n.doubles = [3.14, 4, 5.05];"
+					+ "n.doubles.push(6);"
+					+ "n.longs = [3, 4, 5];"
+					+ "n.longs.push(6);"
+					+ "n.bools = [true, false, true];"
+					+ "n.bools.push(false);"
+					+ "n.dates = [new Date(), $.get('now'), new Date()];"
+					+ "n.dates.push(new Date());"
+					+ "}}", null);
+
+			tx.success();
+
+		} catch (FrameworkException ex) {
+			fail();
+		}
+
+		// test
+		try (final Tx tx = app.tx()) {
+
+			final ActionContext ac = new ActionContext(securityContext);
+			assertEquals("All array properties should return 0 length", "000000",                                         Scripting.evaluate(ac, null, "${{ let n = $.find('ArrayPropertiesTest', { name: 'emptyTest' })[0]; $.print($.int(n.strings.length), $.int(n.ints.length), $.int(n.doubles.length), $.int(n.longs.length), $.int(n.bools.length), $.int(n.dates.length)); }}", "emptyPushTest"));
+			assertEquals("All array properties should return 1 length after one push()", "111111",                        Scripting.evaluate(ac, null, "${{ let n = $.find('ArrayPropertiesTest', { name: 'emptyPushTest' })[0]; $.print($.int(n.strings.length), $.int(n.ints.length), $.int(n.doubles.length), $.int(n.longs.length), $.int(n.bools.length), $.int(n.dates.length)); }}", "emptyPushTest"));
+			assertEquals("All array properties should return 3 length after assignment of [x,y,z]", "333333",             Scripting.evaluate(ac, null, "${{ let n = $.find('ArrayPropertiesTest', { name: 'emptySetTest' })[0]; $.print($.int(n.strings.length), $.int(n.ints.length), $.int(n.doubles.length), $.int(n.longs.length), $.int(n.bools.length), $.int(n.dates.length)); }}", "emptyPushTest"));
+			assertEquals("All array properties should return 4 length after assignment of [x,y,z] plus push()", "444444", Scripting.evaluate(ac, null, "${{ let n = $.find('ArrayPropertiesTest', { name: 'setAndPushTest' })[0]; $.print($.int(n.strings.length), $.int(n.ints.length), $.int(n.doubles.length), $.int(n.longs.length), $.int(n.bools.length), $.int(n.dates.length)); }}", "emptyPushTest"));
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testAdvancedFindNamespaceHandlingWithException() {
+
+		/*
+		 * This test verifies that the find() namespace is correctly exited even when an exception
+		 * occurs inside of a find() function call (e.g. caused by a wrongly typed search parameter).
+		 */
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		// setup
+		try (final Tx tx = app.tx()) {
+
+			final JsonSchema schema = StructrSchema.createFromDatabase(app);
+			final JsonType type     = schema.addType("Test");
+
+			type.addIntegerProperty("test");
+
+			StructrSchema.extendDatabaseSchema(app, schema);
+
+			tx.success();
+
+		} catch (Throwable t) {
+
+			t.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		// test
+		try (final Tx tx = app.tx()) {
+
+			Scripting.evaluate(ctx, null, "${{ var source = $.find('Test', { test: 'error' }); let test = $.empty(source); $.store('result', test); }}", "test");
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			assertEquals("Wrong error code for exception inside of advanced find() context.",   422, fex.getStatus());
+			assertEquals("Wrong error message for exception inside of advanced find() context", "Cannot parse input error for property test", fex.getMessage());
+		}
+
+		// expected result is boolean "true" since the empty() function call checks the result of the erroneous find()
+		assertEquals("Advanced find() namespace not exited correctly", true, securityContext.getContextStore().retrieve("result"));
+
+	}
+
+	@Test
+	public void testStructrScriptArrayIndexingWithVariable() {
+
+		final ActionContext ctx  = new ActionContext(securityContext);
+		final List<Group> groups = new LinkedList<>();
+
+		// setup
+		try (final Tx tx = app.tx()) {
+
+			groups.add(app.create(Group.class, "group4"));
+			groups.add(app.create(Group.class, "group2"));
+			groups.add(app.create(Group.class, "group1"));
+			groups.add(app.create(Group.class, "group5"));
+			groups.add(app.create(Group.class, "group7"));
+			groups.add(app.create(Group.class, "group6"));
+			groups.add(app.create(Group.class, "group3"));
+			groups.add(app.create(Group.class, "group8"));
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+
+		try (final Tx tx = app.tx()) {
+
+			final Group group1 = groups.get(2);
+
+			ctx.setConstant("index1", 3);
+			ctx.setConstant("index2", "3");
+
+
+			assertEquals("StructrScript array indexing returns wrong result",   group1, Scripting.evaluate(ctx, null, "${find('Group', sort('name'))[0]}", "test1"));
+			assertEquals("StructrScript array indexing returns wrong result", "group2", Scripting.evaluate(ctx, null, "${find('Group', sort('name'))[1].name}", "test1"));
+			assertEquals("StructrScript array indexing returns wrong result", "group4", Scripting.evaluate(ctx, null, "${find('Group', sort('name'))[index1].name}", "test1"));
+			assertEquals("StructrScript array indexing returns wrong result", "group4", Scripting.evaluate(ctx, null, "${find('Group', sort('name'))[index2].name}", "test1"));
+
+			// FIXME: this test fails because [] binds to the wrong expression
+			//final List<Group> check1 = groups.subList(3, 4);
+			//assertEquals("StructrScript array indexing returns wrong result",   check1, Scripting.evaluate(ctx, null, "${merge(find('Group', sort('name'))[index2])}", "test1"));
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testSortingByMultipleKeysInJavascript() {
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		try (final Tx tx = app.tx()) {
+
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name7"), new NodeAttribute<>(TestOne.anInt, 3), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name5"), new NodeAttribute<>(TestOne.anInt, 2), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name2"), new NodeAttribute<>(TestOne.anInt, 1), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name1"), new NodeAttribute<>(TestOne.anInt, 3), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name3"), new NodeAttribute<>(TestOne.anInt, 2), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name4"), new NodeAttribute<>(TestOne.anInt, 1), new NodeAttribute<>(TestOne.aLong, 10L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name9"), new NodeAttribute<>(TestOne.anInt, 3), new NodeAttribute<>(TestOne.aLong, 10L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name8"), new NodeAttribute<>(TestOne.anInt, 2), new NodeAttribute<>(TestOne.aLong, 10L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name6"), new NodeAttribute<>(TestOne.anInt, 1), new NodeAttribute<>(TestOne.aLong, 10L));
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fail("Unexpected exception.");
+		}
+
+		try (final Tx tx = app.tx()) {
+
+			//final List<TestOne> result1 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.name).getAsList();
+			final List<TestOne> result1 = (List)Scripting.evaluate(ctx, null, "${{ return $.find('TestOne', $.sort('aLong'), $.sort('name'))}}", "test1");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result1.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result1.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result1.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result1.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result1.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result1.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result1.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result1.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result1.get(8).getName());
+
+			//final List<TestOne> result2 = app.nodeQuery(TestOne.class).sort(TestOne.aLong, true).sort(TestOne.name).getAsList();
+			final List<TestOne> result2 = (List)Scripting.evaluate(ctx, null, "${{ return $.find('TestOne', $.sort('aLong', true), $.sort('name'))}}", "test2");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result2.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result2.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result2.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result2.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result2.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result2.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result2.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result2.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result2.get(8).getName());
+
+			//final List<TestOne> result3 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.name, true).getAsList();
+			final List<TestOne> result3 = (List)Scripting.evaluate(ctx, null, "${{ return $.find('TestOne', $.sort('aLong'), $.sort('name', true))}}", "test3");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result3.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result3.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result3.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result3.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result3.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result3.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result3.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result3.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result3.get(8).getName());
+
+			//final List<TestOne> result4 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.anInt).sort(TestOne.name).getAsList();
+			final List<TestOne> result4 = (List)Scripting.evaluate(ctx, null, "${{ return $.find('TestOne', $.sort('aLong'), $.sort('anInt'), $.sort('name'))}}", "test4");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result4.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result4.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result4.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result4.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result4.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result4.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result4.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result4.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result4.get(8).getName());
+
+			//final List<TestOne> result5 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.anInt, true).sort(TestOne.name).getAsList();
+			final List<TestOne> result5 = (List)Scripting.evaluate(ctx, null, "${{ return $.find('TestOne', $.sort('aLong'), $.sort('anInt', true), $.sort('name'))}}", "test5");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result5.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result5.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result5.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result5.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result5.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result5.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result5.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result5.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result5.get(8).getName());
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fex.printStackTrace();
+			System.out.println(fex.getMessage());
+			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testSortingByMultipleKeysInStructrScriptAdvancedFind() {
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		try (final Tx tx = app.tx()) {
+
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name7"), new NodeAttribute<>(TestOne.anInt, 3), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name5"), new NodeAttribute<>(TestOne.anInt, 2), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name2"), new NodeAttribute<>(TestOne.anInt, 1), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name1"), new NodeAttribute<>(TestOne.anInt, 3), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name3"), new NodeAttribute<>(TestOne.anInt, 2), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name4"), new NodeAttribute<>(TestOne.anInt, 1), new NodeAttribute<>(TestOne.aLong, 10L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name9"), new NodeAttribute<>(TestOne.anInt, 3), new NodeAttribute<>(TestOne.aLong, 10L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name8"), new NodeAttribute<>(TestOne.anInt, 2), new NodeAttribute<>(TestOne.aLong, 10L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name6"), new NodeAttribute<>(TestOne.anInt, 1), new NodeAttribute<>(TestOne.aLong, 10L));
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fail("Unexpected exception.");
+		}
+
+		try (final Tx tx = app.tx()) {
+
+			//final List<TestOne> result1 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.name).getAsList();
+			final List<TestOne> result1 = (List)Scripting.evaluate(ctx, null, "${find('TestOne', sort('aLong'), sort('name'))}", "test1");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result1.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result1.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result1.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result1.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result1.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result1.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result1.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result1.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result1.get(8).getName());
+
+			//final List<TestOne> result2 = app.nodeQuery(TestOne.class).sort(TestOne.aLong, true).sort(TestOne.name).getAsList();
+			final List<TestOne> result2 = (List)Scripting.evaluate(ctx, null, "${find('TestOne', sort('aLong', true), sort('name'))}", "test2");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result2.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result2.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result2.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result2.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result2.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result2.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result2.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result2.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result2.get(8).getName());
+
+			//final List<TestOne> result3 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.name, true).getAsList();
+			final List<TestOne> result3 = (List)Scripting.evaluate(ctx, null, "${find('TestOne', sort('aLong'), sort('name', true))}", "test3");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result3.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result3.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result3.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result3.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result3.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result3.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result3.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result3.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result3.get(8).getName());
+
+			//final List<TestOne> result4 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.anInt).sort(TestOne.name).getAsList();
+			final List<TestOne> result4 = (List)Scripting.evaluate(ctx, null, "${find('TestOne', sort('aLong'), sort('anInt'), sort('name'))}", "test4");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result4.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result4.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result4.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result4.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result4.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result4.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result4.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result4.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result4.get(8).getName());
+
+			//final List<TestOne> result5 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.anInt, true).sort(TestOne.name).getAsList();
+			final List<TestOne> result5 = (List)Scripting.evaluate(ctx, null, "${find('TestOne', sort('aLong'), sort('anInt', true), sort('name'))}", "test5");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result5.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result5.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result5.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result5.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result5.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result5.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result5.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result5.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result5.get(8).getName());
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fex.printStackTrace();
+			System.out.println(fex.getMessage());
+			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testSortingByMultipleKeysInStructrScriptNormalFind() {
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		try (final Tx tx = app.tx()) {
+
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name7"), new NodeAttribute<>(TestOne.anInt, 3), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name5"), new NodeAttribute<>(TestOne.anInt, 2), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name2"), new NodeAttribute<>(TestOne.anInt, 1), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name1"), new NodeAttribute<>(TestOne.anInt, 3), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name3"), new NodeAttribute<>(TestOne.anInt, 2), new NodeAttribute<>(TestOne.aLong, 20L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name4"), new NodeAttribute<>(TestOne.anInt, 1), new NodeAttribute<>(TestOne.aLong, 10L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name9"), new NodeAttribute<>(TestOne.anInt, 3), new NodeAttribute<>(TestOne.aLong, 10L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name8"), new NodeAttribute<>(TestOne.anInt, 2), new NodeAttribute<>(TestOne.aLong, 10L));
+			app.create(TestOne.class, new NodeAttribute<>(AbstractNode.name, "name6"), new NodeAttribute<>(TestOne.anInt, 1), new NodeAttribute<>(TestOne.aLong, 10L));
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fail("Unexpected exception.");
+		}
+
+		try (final Tx tx = app.tx()) {
+
+			//final List<TestOne> result1 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.name).getAsList();
+			final List<TestOne> result1 = (List)Scripting.evaluate(ctx, null, "${sort(find('TestOne') 'aLong', false, 'name', false)}", "test1");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result1.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result1.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result1.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result1.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result1.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result1.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result1.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result1.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result1.get(8).getName());
+
+			//final List<TestOne> result2 = app.nodeQuery(TestOne.class).sort(TestOne.aLong, true).sort(TestOne.name).getAsList();
+			final List<TestOne> result2 = (List)Scripting.evaluate(ctx, null, "${sort(find('TestOne'), 'aLong', true, 'name')}", "test2");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result2.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result2.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result2.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result2.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result2.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result2.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result2.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result2.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result2.get(8).getName());
+
+			//final List<TestOne> result3 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.name, true).getAsList();
+			final List<TestOne> result3 = (List)Scripting.evaluate(ctx, null, "${sort(find('TestOne'), 'aLong', false, 'name', true)}", "test3");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result3.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result3.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result3.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result3.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result3.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result3.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result3.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result3.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result3.get(8).getName());
+
+			//final List<TestOne> result4 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.anInt).sort(TestOne.name).getAsList();
+			final List<TestOne> result4 = (List)Scripting.evaluate(ctx, null, "${sort(find('TestOne'), 'aLong', false, 'anInt', false, 'name', false)}", "test4");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result4.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result4.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result4.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result4.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result4.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result4.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result4.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result4.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result4.get(8).getName());
+
+			//final List<TestOne> result5 = app.nodeQuery(TestOne.class).sort(TestOne.aLong).sort(TestOne.anInt, true).sort(TestOne.name).getAsList();
+			final List<TestOne> result5 = (List)Scripting.evaluate(ctx, null, "${sort(find('TestOne'), 'aLong', false, 'anInt', true, 'name')}", "test5");
+
+			assertEquals("Sorting by multiple keys returns wrong result", "name9", result5.get(0).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name8", result5.get(1).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name4", result5.get(2).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name6", result5.get(3).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name1", result5.get(4).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name7", result5.get(5).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name3", result5.get(6).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name5", result5.get(7).getName());
+			assertEquals("Sorting by multiple keys returns wrong result", "name2", result5.get(8).getName());
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fex.printStackTrace();
+			System.out.println(fex.getMessage());
+			fail("Unexpected exception.");
+		}
+	}
+
+	@Test
+	public void testComments() {
+
+		/*
+		 * This test verifies that comments in JavaScript blocks are detected and interpreded correctly.
+		 */
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		// test
+		try (final Tx tx = app.tx()) {
+
+			final Object result = Scripting.evaluate(ctx, null, "${{\n\n\t$.log('Testing');\n\n\t/*}*/\n\n}}", "test");
+
+			System.out.println("'" + result + "'");
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			assertEquals("Wrong error code for exception inside of advanced find() context.",   422, fex.getStatus());
+			assertEquals("Wrong error message for exception inside of advanced find() context", "Cannot parse input error for property test", fex.getMessage());
+		}
+
+	}
+
+	@Test
+	public void testJavaScriptQuirksDuckTypingNumericalMapIndex () {
+
+		/*
+			This test makes sure that map access works even though javascript interprets numerical strings (e.g. "1", "25") as ints (after the map has undergone wrapping/unwrapping
+		*/
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		// test
+		try (final Tx tx = app.tx()) {
+
+			final String script =  "${{\n" +
+				"	$.store('testStore', {\n" +
+				"		'01': 'valueAtZeroOne',\n" +
+				"		'2' : 'valueAtTwo'\n" +
+				"	});\n" +
+				"	\n" +
+				"	let x = $.retrieve('testStore');\n" +
+				"	\n" +
+				"	return (x['2'] === 'valueAtTwo');\n" +
+				"}}";
+
+			final Object result = Scripting.evaluate(ctx, null, script, "test");
+
+			assertEquals("Result should not be undefined! Access to maps at numerical indexes should work.", true, result);
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fail("Unexpected exception");
+		}
+
+	}
+
+	@Test
+	public void testSlice() {
+
+		final ActionContext ctx           = new ActionContext(securityContext);
+		final List<String> testSixNames   = new LinkedList<>();
+		TestOne testOne                   = null;
+		List<TestSix> testSixs            = null;
+		int index                         = 0;
+
+		try (final Tx tx = app.tx()) {
+
+			testOne        = createTestNode(TestOne.class);
+			testSixs       = createTestNodes(TestSix.class, 20, 1);
+
+			final Calendar cal = GregorianCalendar.getInstance();
+
+			// set calendar to 2018-01-01T00:00:00+0000
+			cal.set(2018, 0, 1, 0, 0, 0);
+
+			for (final TestSix testSix : testSixs) {
+
+				final String name = "TestSix" + StringUtils.leftPad(Integer.toString(index), 2, "0");
+
+				testSix.setProperty(TestSix.name, name);
+				testSix.setProperty(TestSix.index, index);
+				testSix.setProperty(TestSix.date, cal.getTime());
+
+				index++;
+				cal.add(Calendar.DAY_OF_YEAR, 3);
+
+				// build list of names
+				testSixNames.add(name);
+			}
+
+			testOne.setProperty(TestOne.manyToManyTestSixs, testSixs);
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fex.printStackTrace();
+		}
+
+		Settings.CypherDebugLogging.setValue(true);
+
+		try (final Tx tx = app.tx()) {
+
+			// slice
+			final Object sliceResult = Scripting.evaluate(ctx, testOne, "${slice(this.manyToManyTestSixs, 0, 5)}", "slice test");
+			assertTrue("Invalid slice() result, must return collection for valid results", sliceResult instanceof Collection);
+			assertTrue("Invalid slice() result, must return list for valid results", sliceResult instanceof List);
+			final List sliceResultList = (List)sliceResult;
+			assertEquals("Invalid slice() result, must return a list of 5 objects", 5, sliceResultList.size());
+
+			// slice with find
+			final Object sliceWithFindResult = Scripting.evaluate(ctx, null, "${slice(find('TestSix'), 0, 2)}", "slice test with find");
+			assertTrue("Invalid slice() result, must return collection for valid results", sliceWithFindResult instanceof Collection);
+			assertTrue("Invalid slice() result, must return list for valid results", sliceWithFindResult instanceof List);
+			final List sliceWithFindResultList = (List)sliceWithFindResult;
+			assertEquals("Invalid slice() result, must return a list of 2 object", 2, sliceWithFindResultList.size());
+
+			// slice with find JS
+			//final Object sliceWithFindJSResult = Scripting.evaluate(ctx, null, "${{ return $.slice(function() { return $.find('TestSix') }, 0, 2); }}", "slice test with find in JS");
+			//assertTrue("Invalid slice() result, must return collection for valid results", sliceWithFindJSResult instanceof Collection);
+			//assertTrue("Invalid slice() result, must return list for valid results", sliceWithFindJSResult instanceof List);
+			//final List sliceWithFindJSResultList = (List)sliceWithFindJSResult;
+			//assertEquals("Invalid slice() result, must return a list of 2 objects", 2, sliceWithFindJSResultList.size());
+
+			// test error cases
+			assertEquals("Invalid slice() result for invalid inputs", "", Scripting.replaceVariables(ctx, testOne, "${slice(this.alwaysNull, 1, 2)}"));
+			assertEquals("Invalid slice() result for invalid inputs", "", Scripting.replaceVariables(ctx, testOne, "${slice(this.manyToManyTestSixs, -1, 1)}"));
+			assertEquals("Invalid slice() result for invalid inputs", "", Scripting.replaceVariables(ctx, testOne, "${slice(this.manyToManyTestSixs, 2, 1)}"));
+
+			// test with interval larger than number of elements
+			assertEquals("Invalid slice() result for invalid inputs",
+				Iterables.toList(testOne.getProperty(TestOne.manyToManyTestSixs)).toString(),
+				Scripting.replaceVariables(ctx, testOne, "${slice(this.manyToManyTestSixs, 0, 1000)}")
+			);
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+
+			fex.printStackTrace();
+
+		} finally {
+
+			Settings.CypherDebugLogging.setValue(false);
 		}
 	}
 

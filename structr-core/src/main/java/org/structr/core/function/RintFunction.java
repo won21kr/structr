@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -26,11 +26,16 @@ import org.structr.schema.action.ActionContext;
 
 public class RintFunction extends CoreFunction {
 
-	public static final String ERROR_MESSAGE_RINT = "Usage: ${rint(range)}. Example: ${rint(1000)}";
+	public static final String ERROR_MESSAGE_RINT = "Usage: ${rint(bound)}. Example: ${rint(1000)}";
 
 	@Override
 	public String getName() {
 		return "rint";
+	}
+
+	@Override
+	public String getSignature() {
+		return "bound";
 	}
 
 	@Override

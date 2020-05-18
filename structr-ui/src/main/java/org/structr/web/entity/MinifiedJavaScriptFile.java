@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -40,8 +40,8 @@ import org.structr.core.graph.ModificationEvent;
 import org.structr.core.property.PropertyKey;
 import org.structr.core.property.PropertyMap;
 import org.structr.schema.SchemaService;
-import org.structr.schema.json.JsonSchema;
-import org.structr.schema.json.JsonType;
+import org.structr.api.schema.JsonSchema;
+import org.structr.api.schema.JsonType;
 import org.structr.web.common.FileHelper;
 
 public interface MinifiedJavaScriptFile extends AbstractMinifiedFile {
@@ -61,22 +61,26 @@ public interface MinifiedJavaScriptFile extends AbstractMinifiedFile {
 
 		type.overrideMethod("getOptimizationLevel",                 false, "return getProperty(optimizationLevelProperty).name();");
 		type.overrideMethod("shouldModificationTriggerMinifcation", false, "return " + MinifiedJavaScriptFile.class.getName() + ".shouldModificationTriggerMinifcation(this, arg0);");
-		type.overrideMethod("minify",                               false, MinifiedJavaScriptFile.class.getName() + ".minify(this);");
+
+		type.addMethod("minify")
+			.addParameter("ctx", SecurityContext.class.getName())
+			.setSource(MinifiedJavaScriptFile.class.getName() + ".minify(this, ctx);")
+			.addException(FrameworkException.class.getName())
+			.addException(IOException.class.getName())
+			.setDoExport(true);
 	}}
 
 	String getOptimizationLevel();
-
 
 	static boolean shouldModificationTriggerMinifcation(final MinifiedJavaScriptFile thisFile, final ModificationEvent modState) {
 		return modState.getModifiedProperties().containsKey(StructrApp.key(MinifiedJavaScriptFile.class, "optimizationLevel"));
 	}
 
-	static void minify(final MinifiedJavaScriptFile thisFile) throws FrameworkException, IOException {
+	static void minify(final MinifiedJavaScriptFile thisFile, final SecurityContext securityContext) throws FrameworkException, IOException {
 
-		logger.info("Running minify: {}", thisFile.getUuid());
+		logger.info("Running minification of MinifiedJavaScriptFile: {}", thisFile.getUuid());
 
 		final com.google.javascript.jscomp.Compiler compiler = new com.google.javascript.jscomp.Compiler();
-		final SecurityContext securityContext                = thisFile.getSecurityContext();
 		final CompilerOptions options                        = new CompilerOptions();
 		final CompilationLevel selectedLevel                 = CompilationLevel.valueOf(thisFile.getOptimizationLevel());
 
@@ -116,13 +120,13 @@ public interface MinifiedJavaScriptFile extends AbstractMinifiedFile {
 
 	static ArrayList<SourceFile> getSourceFileList(final MinifiedJavaScriptFile thisFile) throws FrameworkException, IOException {
 
-		final Class<Relation> type             = StructrApp.getConfiguration().getRelationshipEntityClass("AbstractMinifiedFileMINIFICATIONFile");
-		final PropertyKey<Integer> key         = StructrApp.key(type, "position");
+		final Class<Relation> relType          = StructrApp.getConfiguration().getRelationshipEntityClass("AbstractMinifiedFileMINIFICATIONFile");
+		final PropertyKey<Integer> key         = StructrApp.key(relType, "position");
 		final ArrayList<SourceFile> sourceList = new ArrayList();
 
 		int cnt = 0;
 
-		for (Relation rel : AbstractMinifiedFile.getSortedRelationships(thisFile)) {
+		for (Relation rel : AbstractMinifiedFile.getSortedMinificationRelationships(thisFile)) {
 
 			final File src = (File)rel.getTargetNode();
 

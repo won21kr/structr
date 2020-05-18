@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -16,21 +16,15 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Structr.  If not, see <http://www.gnu.org/licenses/>.
  */
-import { Persistence }         from "./flow-editor/src/js/persistence/Persistence.js";
+import { Persistence }         from "./lib/structr/persistence/Persistence.js";
 import { FlowContainer }       from "./flow-editor/src/js/editor/entities/FlowContainer.js";
 import { FlowEditor }          from "./flow-editor/src/js/editor/FlowEditor.js";
-import { FlowConnectionTypes } from "./flow-editor/src/js/editor/FlowConnectionTypes.js";
 import { LayoutModal }         from "./flow-editor/src/js/editor/utility/LayoutModal.js";
-
-import { Component }           from "./lib/structr/Component.js";
-import {StructrRest} from "./flow-editor/src/js/rest/StructrRest.js";
-import {Rest} from "./flow-editor/src/js/rest/Rest.js";
+import {Rest} from "./lib/structr/rest/Rest.js";
 
 let main, flowsMain, flowsTree, flowsCanvas;
 let flowEditor, flowId;
 const methodPageSize = 10000, methodPage = 1;
-const flowsResizerLeftKey = 'structrFlowsResizerLeftKey_' + port;
-const activeFlowsTabPrefix = 'activeFlowsTabPrefix' + port;
 
 document.addEventListener("DOMContentLoaded", function() {
     Structr.registerModule(_Flows);
@@ -38,6 +32,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 var _Flows = {
 	_moduleName: 'flows',
+	flowsResizerLeftKey: 'structrFlowsResizerLeftKey_' + port,
 	init: function() {
 
 		_Logger.log(_LogType.FLOWS, '_Flows.init');
@@ -47,29 +42,15 @@ var _Flows = {
 
 	},
 	resize: function() {
-
-        const windowHeight = window.innerHeight;
-        const headerOffsetHeight = 100;
-
-        if (flowsTree) {
-			flowsTree.style.height = windowHeight - headerOffsetHeight + 5 + 'px';
-		}
-
-		if (flowsCanvas) {
-			flowsCanvas.style.height = windowHeight - headerOffsetHeight - 19 + 'px';
-		}
-
 		_Flows.moveResizer();
 		Structr.resize();
-
 	},
 	moveResizer: function(left) {
-		left = left || LSWrapper.getItem(flowsResizerLeftKey) || 300;
+		left = left || LSWrapper.getItem(_Flows.flowsResizerLeftKey) || 300;
 		document.querySelector('#flows-main .column-resizer').style.left = left + 'px';
 
-		document.querySelector('#flows-tree').style.width   = left - 14 + 'px';
-		document.querySelector('#flows-canvas').style.left  = left +  8 + 'px';
-		document.querySelector('#flows-canvas').style.width = window.innerWidth - left - 47 + 'px';
+		document.querySelector('#flows-tree-container').style.width   = left - 12 + 'px';
+		document.querySelector('#flows-canvas-container').style.width = window.innerWidth - left - 40 + 'px';
 	},
 	onload: function() {
 
@@ -79,11 +60,11 @@ var _Flows = {
 
 		main = document.querySelector('#main');
 
-		main.innerHTML = '<div class="tree-main" id="flows-main"><div class="column-resizer"></div><div class="fit-to-height tree-container" id="flows-tree-container"><div class="tree" id="flows-tree"></div></div><div class="fit-to-height tree-contents-container" id="flows-canvas-container"><div class="tree-contents tree-contents-with-top-buttons" id="flows-canvas"></div></div>';
+		main.innerHTML = '<div class="tree-main" id="flows-main"><div class="column-resizer"></div><div class="tree-container" id="flows-tree-container"><div class="tree" id="flows-tree"></div></div><div class="tree-contents-container" id="flows-canvas-container"><div class="tree-contents tree-contents-with-top-buttons" id="flows-canvas"></div></div>';
 		flowsMain = document.querySelector('#flows-main');
 
 		let markup = `
-			<div class="input-and-button"><input id="name-input" type="text" size="12" placeholder="Enter flow name"><button id="create-new-flow" class="action btn"><i class="${_Icons.getFullSpriteClass(_Icons.add_icon)}"></i> Add</button></div>
+			<div class="input-and-button"><input id="name-input" type="text" placeholder="Enter flow name"><button id="create-new-flow" class="action btn"><i class="${_Icons.getFullSpriteClass(_Icons.add_icon)}"></i> Add</button></div>
 			<!--button class="add-flow-node"><i class="${_Icons.getFullSpriteClass(_Icons.add_brick_icon)}"></i> Add node</button-->
 			<button class="delete_flow_icon button disabled"><i title="Delete" class="${_Icons.getFullSpriteClass(_Icons.delete_icon)}"></i> Delete flow</button>
 			<button class="run_flow_icon button disabled"><i title="Run" class="${_Icons.getFullSpriteClass(_Icons.exec_icon)}"></i> Run</button>
@@ -198,22 +179,22 @@ var _Flows = {
 		flowsCanvas = document.querySelector('#flows-canvas');
 
 		_Flows.moveResizer();
-		Structr.initVerticalSlider(document.querySelector('#flows-main .column-resizer'), flowsResizerLeftKey, 204, _Flows.moveResizer);
+		Structr.initVerticalSlider(document.querySelector('#flows-main .column-resizer'), _Flows.flowsResizerLeftKey, 204, _Flows.moveResizer);
 
         $(flowsTree).jstree({
             plugins: ["themes", "dnd", "search", "state", "types", "wholerow","sort", "contextmenu"],
-            core: {
+			core: {
 				check_callback: true,
-                animation: 0,
-                state: {
-                    key: 'structr-ui-flows'
-                },
-                async: true,
-                data: _Flows.treeInitFunction,
-            },
-            sort: function(a, b) {
-                let a1 = this.get_node(a);
-                let b1 = this.get_node(b);
+				animation: 0,
+				state: {
+					key: 'structr-ui-flows'
+				},
+				async: true,
+				data: _Flows.treeInitFunction,
+			},
+			sort: function(a, b) {
+				let a1 = this.get_node(a);
+				let b1 = this.get_node(b);
 
 				if (a1.id.startsWith('/') && !b1.id.startsWith('/')) {
 					return -1;
@@ -222,7 +203,7 @@ var _Flows = {
 				} else {
 					return (a1.text > b1.text) ? 1 : -1;
 				}
-            },
+			},
 			contextmenu: {
             	items: function(node) {
 					let menuItems = {};
@@ -322,11 +303,6 @@ var _Flows = {
 					return menuItems;
 				}
 			}
-        });
-
-		window.removeEventListener('resize', resizeFunction);
-		window.addEventListener('resize', function() {
-			_Flows.resize();
 		});
 
 		Structr.unblockMenu(100);
@@ -402,7 +378,7 @@ var _Flows = {
                 if (name.indexOf(".") !== -1) {
 					dataObject.effectiveName = name;
 				} else {
-                	dataObject.name = name;	
+                	dataObject.name = name;
 				}
 
                 if (id !== null) {
@@ -491,13 +467,6 @@ var _Flows = {
 			case '#':
 
                 let defaultEntries = [
-                    {
-                        id: 'globals',
-                        text: 'Favorites',
-                        children: true,
-                        icon: _Icons.star_icon,
-                        data: {type: "favorite"}
-                    },
                     {
                         id: 'root',
                         text: 'Flows',
@@ -632,17 +601,17 @@ var _Flows = {
 
         dialogText.append('<div class="editor"></div>');
 		let contentBox = $('.editor', dialogText);
-		let lineWrapping = LSWrapper.getItem(lineWrappingKey);
-		let cmEditor = CodeMirror(contentBox.get(0), {
+
+		let cmEditor = CodeMirror(contentBox.get(0), Structr.getCodeMirrorSettings({
 			value: element.value,
 			mode: "application/javascript",
 			lineNumbers: true,
-			lineWrapping: lineWrapping,
+			lineWrapping: false,
 			indentUnit: 4,
-			tabSize:4,
+			tabSize: 4,
 			indentWithTabs: true,
 			autofocus: true
-		});
+		}));
 
         Structr.resize();
 
@@ -718,10 +687,17 @@ var _Flows = {
 
 					let result = res.result;
 
-					for (let node of result) {
+					if (Array.isArray(result)) {
+						for (let node of result) {
 
-						flowEditor.renderNode(persistence._wrapObject(node,node));
+							flowEditor.renderNode(persistence._wrapObject(node, node), true);
+						}
+					} else {
+
+						flowEditor.renderNode(persistence._wrapObject(result, result), true);
 					}
+
+					flowEditor._editor.view.update();
 
 				}).then(() => {
 
@@ -729,9 +705,12 @@ var _Flows = {
 
 						let result = res.result;
 
-						for (let rel of result) {
+						if (result !== null && result !== undefined && result.length > 0) {
 
-							flowEditor.connectNodes(rel);
+							for (let rel of result) {
+
+								flowEditor.connectNodes(rel);
+							}
 						}
 
 					}).then(() => {
@@ -739,6 +718,10 @@ var _Flows = {
 						flowEditor.applySavedLayout();
 						flowEditor._editor.view.update();
 						flowEditor.resetView();
+
+						flowEditor.setupContextMenu();
+
+						flowEditor.disableRelationshipEvents = false;
 
 						// activate buttons
 						document.querySelector('.run_flow_icon').classList.remove('disabled');

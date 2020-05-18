@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -100,17 +100,14 @@ public class MixedCSVFileImportJob extends FileImportJob {
 			//logger.info("Importing CSV from {} ({}) to {} using {}", filePath, fileUuid, targetType, configuration);
 
 			final SecurityContext threadContext = SecurityContext.getInstance(user, AccessMode.Backend);
-			final APIBuilder builder            = (APIBuilder) StructrApp.getConfiguration().getModules().get("api-builder");
 			final SimpleDateFormat df           = new SimpleDateFormat("yyyyMMddHHMM");
-			final String importTypeName         = "ImportFromCsv" + df.format(System.currentTimeMillis());
 			final App app                       = StructrApp.getInstance(threadContext);
 
 			// disable transaction notifications
 			threadContext.setContextStore(ctxStore);
 			threadContext.disableModificationOfAccessTime();
-			threadContext.ignoreResultCount(true);
 			threadContext.setDoTransactionNotifications(false);
-			threadContext.disableEnsureCardinality();
+			threadContext.disablePreventDuplicateRelationships();
 
 			try (final InputStream is = getFileInputStream(threadContext)) {
 

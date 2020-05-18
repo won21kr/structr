@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -24,56 +24,57 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang.StringUtils;
 import org.neo4j.driver.v1.AuthTokens;
 import org.neo4j.driver.v1.Config;
 import org.neo4j.driver.v1.Driver;
 import org.neo4j.driver.v1.GraphDatabase;
 import org.neo4j.driver.v1.Session;
+import org.neo4j.driver.v1.TransactionConfig;
+import org.neo4j.driver.v1.exceptions.AuthenticationException;
 import org.neo4j.driver.v1.exceptions.ClientException;
 import org.neo4j.driver.v1.exceptions.DatabaseException;
 import org.neo4j.driver.v1.exceptions.ServiceUnavailableException;
-import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
-import org.neo4j.graphdb.factory.GraphDatabaseFactory;
-import org.neo4j.graphdb.factory.GraphDatabaseSettings;
-import org.neo4j.kernel.configuration.BoltConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.structr.api.AbstractDatabaseService;
+import org.structr.api.DatabaseFeature;
+import org.structr.api.NativeQuery;
 import org.structr.api.NetworkException;
 import org.structr.api.NotInTransactionException;
+import org.structr.api.RetryException;
 import org.structr.api.Transaction;
 import org.structr.api.config.Settings;
 import org.structr.api.graph.GraphProperties;
 import org.structr.api.graph.Identity;
-import org.structr.api.graph.Label;
 import org.structr.api.graph.Node;
 import org.structr.api.graph.Relationship;
 import org.structr.api.graph.RelationshipType;
 import org.structr.api.index.Index;
+import org.structr.api.search.ExactQuery;
+import org.structr.api.search.Occurrence;
+import org.structr.api.search.QueryContext;
+import org.structr.api.search.QueryPredicate;
+import org.structr.api.search.SortOrder;
+import org.structr.api.search.TypeQuery;
 import org.structr.api.util.CountResult;
-import org.structr.api.util.Iterables;
 import org.structr.api.util.NodeWithOwnerResult;
-import org.structr.bolt.index.CypherNodeIndex;
-import org.structr.bolt.index.CypherRelationshipIndex;
-import org.structr.bolt.index.NodeResultStream;
-import org.structr.bolt.index.RelationshipResultStream;
-import org.structr.bolt.index.SimpleCypherQuery;
-import org.structr.bolt.mapper.NodeNodeMapper;
-import org.structr.bolt.mapper.RelationshipRelationshipMapper;
-import org.structr.bolt.wrapper.BoltIdentity;
-import org.structr.bolt.wrapper.NodeWrapper;
-import org.structr.bolt.wrapper.RelationshipWrapper;
 
 /**
  *
@@ -82,63 +83,49 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 	private static final Logger logger                                = LoggerFactory.getLogger(BoltDatabaseService.class.getName());
 	private static final Map<String, RelationshipType> relTypeCache   = new ConcurrentHashMap<>();
-	private static final Map<String, Label> labelCache                = new ConcurrentHashMap<>();
 	private static final ThreadLocal<SessionTransaction> sessions     = new ThreadLocal<>();
 	private static final long nanoEpoch                               = System.nanoTime();
+	private final Set<String> supportedQueryLanguages                 = new LinkedHashSet<>();
 	private Properties globalGraphProperties                          = null;
 	private CypherRelationshipIndex relationshipIndex                 = null;
 	private CypherNodeIndex nodeIndex                                 = null;
-	private GraphDatabaseService graphDb                              = null;
+	private String errorMessage                                       = null;
 	private String databaseUrl                                        = null;
 	private String databasePath                                       = null;
 	private Driver driver                                             = null;
 
 	@Override
-	public boolean initialize() {
+	public boolean initialize(final String name) {
 
-		this.databasePath = Settings.DatabasePath.getValue();
+		String serviceName = null;
 
-		final BoltConnector bolt = new BoltConnector("0");
-		databaseUrl              = Settings.ConnectionUrl.getValue();
-		final String username    = Settings.ConnectionUser.getValue();
-		final String password    = Settings.ConnectionPassword.getValue();
-		final String driverMode  = Settings.DatabaseDriverMode.getValue();
-		final String confPath    = databasePath + "/neo4j.conf";
-		final File confFile      = new File(confPath);
+		if (!"default".equals(name)) {
 
-		// see https://github.com/neo4j/neo4j-java-driver/issues/364 for an explanation
-		final String databaseServerUrl;
-		final String databaseDriverUrl;
+			serviceName = name;
+		}
+
+		this.databasePath        = Settings.DatabasePath.getPrefixedValue(serviceName);
+		databaseUrl              = Settings.ConnectionUrl.getPrefixedValue(serviceName);
+		final String username    = Settings.ConnectionUser.getPrefixedValue(serviceName);
+		final String password    = Settings.ConnectionPassword.getPrefixedValue(serviceName);
+		String databaseDriverUrl = "bolt://" + databaseUrl;
+
+		// build list of supported query languages
+		supportedQueryLanguages.add("application/x-cypher-query");
+		supportedQueryLanguages.add("application/cypher");
+		supportedQueryLanguages.add("text/cypher");
 
 		if (databaseUrl.length() >= 7 && databaseUrl.substring(0, 7).equalsIgnoreCase("bolt://")) {
-			databaseServerUrl = databaseUrl.substring(7);
+
 			databaseDriverUrl = databaseUrl;
+
 		} else if (databaseUrl.length() >= 15 && databaseUrl.substring(0, 15).equalsIgnoreCase("bolt+routing://")) {
-			databaseServerUrl = databaseUrl.substring(15);
+
 			databaseDriverUrl = databaseUrl;
-		} else {
-			databaseServerUrl = databaseUrl;
-			databaseDriverUrl = "bolt://" + databaseUrl;
 		}
 
 		// create db directory if it does not exist
 		new File(databasePath).mkdirs();
-
-		if (!"remote".equals(driverMode)) {
-
-			final GraphDatabaseBuilder builder = new GraphDatabaseFactory()
-				.newEmbeddedDatabaseBuilder(new File(databasePath))
-				.setConfig( GraphDatabaseSettings.allow_upgrade, "true")
-				.setConfig( bolt.type, "BOLT" )
-				.setConfig( bolt.enabled, "true" )
-				.setConfig( bolt.listen_address, databaseServerUrl);
-
-			if (confFile.exists()) {
-				builder.loadPropertiesFromFile(confPath);
-			}
-
-			graphDb  = builder.newGraphDatabase();
-		}
 
 		try {
 
@@ -147,8 +134,8 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 				Config.build().withEncryption().toConfig()
 			);
 
-			final int relCacheSize  = Settings.RelationshipCacheSize.getValue();
-			final int nodeCacheSize = Settings.NodeCacheSize.getValue();
+			final int relCacheSize  = Settings.RelationshipCacheSize.getPrefixedValue(serviceName);
+			final int nodeCacheSize = Settings.NodeCacheSize.getPrefixedValue(serviceName);
 
 			NodeWrapper.initialize(nodeCacheSize);
 			logger.info("Node cache size set to {}", nodeCacheSize);
@@ -156,15 +143,13 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 			RelationshipWrapper.initialize(relCacheSize);
 			logger.info("Relationship cache size set to {}", relCacheSize);
 
-			// drop :NodeInterface index and create uniqueness constraint
-			// disabled, planned for Structr 2.4
-			//createUUIDConstraint();
-
 			// signal success
 			return true;
 
+		} catch (AuthenticationException auex) {
+			errorMessage = auex.getMessage() + " If you are connecting to this Neo4j instance for the first time, you might need to change the default password in the Neo4j Browser.";
 		} catch (ServiceUnavailableException ex) {
-			logger.error("Neo4j service is not available.");
+			errorMessage = ex.getMessage();
 		}
 
 		// service failed to initialize
@@ -176,10 +161,6 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 		clearCaches();
 		driver.close();
-
-		if (graphDb != null) {
-			graphDb.shutdown();
-		}
 	}
 
 	@Override
@@ -190,6 +171,26 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 			try {
 				session = new SessionTransaction(this, driver.session());
+				sessions.set(session);
+
+			} catch (ServiceUnavailableException ex) {
+				throw new NetworkException(ex.getMessage(), ex);
+			} catch (ClientException cex) {
+				logger.warn("Cannot connect to Neo4j database server at {}: {}", databaseUrl, cex.getMessage());
+			}
+		}
+
+		return session;
+	}
+
+	@Override
+	public Transaction beginTx(final int timeoutInSeconds) {
+
+		SessionTransaction session = sessions.get();
+		if (session == null || session.isClosed()) {
+
+			try {
+				session = new SessionTransaction(this, driver.session(), timeoutInSeconds);
 				sessions.set(session);
 
 			} catch (ServiceUnavailableException ex) {
@@ -315,19 +316,11 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 	@Override
 	public Iterable<Node> getAllNodes() {
 
-		final StringBuilder buf = new StringBuilder();
-		final String tenantId   = getTenantIdentifier();
+		final QueryContext context     = new QueryContext(true);
+		final QueryPredicate predicate = new TypePredicate();
+		final Index<Node> index        = nodeIndex();
 
-		buf.append("MATCH (n");
-
-		if (tenantId != null) {
-			buf.append(":");
-			buf.append(tenantId);
-		}
-
-		buf.append(") RETURN n");
-
-		return Iterables.map(new NodeNodeMapper(this), new NodeResultStream(this, new SimpleCypherQuery(buf.toString())));
+		return index.query(context, predicate, Integer.MAX_VALUE, 1);
 	}
 
 	@Override
@@ -337,21 +330,11 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 			return getAllNodes();
 		}
 
-		final StringBuilder buf = new StringBuilder();
-		final String tenantId   = getTenantIdentifier();
+		final QueryContext context     = new QueryContext(true);
+		final QueryPredicate predicate = new TypePredicate(type);
+		final Index<Node> index        = nodeIndex();
 
-		buf.append("MATCH (n");
-
-		if (tenantId != null) {
-			buf.append(":");
-			buf.append(tenantId);
-		}
-
-		buf.append(":");
-		buf.append(type);
-		buf.append(") RETURN n");
-
-		return Iterables.map(new NodeNodeMapper(this), new NodeResultStream(this, new SimpleCypherQuery(buf.toString())));
+		return index.query(context, predicate, Integer.MAX_VALUE, 1);
 	}
 
 	@Override
@@ -361,23 +344,11 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 			return getAllNodes();
 		}
 
-		final StringBuilder buf = new StringBuilder();
-		final String tenantId   = getTenantIdentifier();
+		final QueryContext context     = new QueryContext(true);
+		final QueryPredicate predicate = new TypePropertyPredicate(type);
+		final Index<Node> index        = nodeIndex();
 
-		buf.append("MATCH (n");
-
-		if (tenantId != null) {
-			buf.append(":");
-			buf.append(tenantId);
-		}
-
-		buf.append(") WHERE n.type = $type RETURN n");
-
-		final SimpleCypherQuery query = new SimpleCypherQuery(buf.toString());
-
-		query.getParameters().put("type", type);
-
-		return Iterables.map(new NodeNodeMapper(this), new NodeResultStream(this, query));
+		return index.query(context, predicate, Integer.MAX_VALUE, 1);
 	}
 
 	@Override
@@ -403,26 +374,11 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 	@Override
 	public Iterable<Relationship> getAllRelationships() {
 
-		final StringBuilder buf = new StringBuilder();
-		final String tenantId   = getTenantIdentifier();
+		final Index<Relationship> index = relationshipIndex();
+		final QueryPredicate predicate  = new TypePredicate();
+		final QueryContext context      = new QueryContext(true);
 
-		buf.append("MATCH (");
-
-		if (tenantId != null) {
-			buf.append(":");
-			buf.append(tenantId);
-		}
-
-		buf.append(")-[r]->(");
-
-		if (tenantId != null) {
-			buf.append(":");
-			buf.append(tenantId);
-		}
-
-		buf.append(") RETURN r");
-
-		return Iterables.map(new RelationshipRelationshipMapper(this), new RelationshipResultStream(this, new SimpleCypherQuery(buf.toString())));
+		return index.query(context, predicate, Integer.MAX_VALUE, 1);
 	}
 
 	@Override
@@ -432,28 +388,11 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 			return getAllRelationships();
 		}
 
-		final StringBuilder buf = new StringBuilder();
-		final String tenantId   = getTenantIdentifier();
+		final Index<Relationship> index = relationshipIndex();
+		final QueryPredicate predicate  = new TypePredicate(type);
+		final QueryContext context      = new QueryContext(true);
 
-		buf.append("MATCH (");
-
-		if (tenantId != null) {
-			buf.append(":");
-			buf.append(tenantId);
-		}
-
-		buf.append(")-[r:");
-		buf.append(type);
-		buf.append("]->(");
-
-		if (tenantId != null) {
-			buf.append(":");
-			buf.append(tenantId);
-		}
-
-		buf.append(") RETURN r");
-
-		return Iterables.map(new RelationshipRelationshipMapper(this), new RelationshipResultStream(this, new SimpleCypherQuery(buf.toString())));
+		return index.query(context, predicate, Integer.MAX_VALUE, 1);
 	}
 
 	@Override
@@ -482,54 +421,50 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 	}
 
 	@Override
-	public void updateIndexConfiguration(final Map<String, Map<String, Boolean>> schemaIndexConfig, final Map<String, Map<String, Boolean>> removedClasses) {
+	public void updateIndexConfiguration(final Map<String, Map<String, Boolean>> schemaIndexConfigSource, final Map<String, Map<String, Boolean>> removedClassesSource, final boolean createOnly) {
 
+		final ExecutorService executor              = Executors.newCachedThreadPool();
 		final Map<String, String> existingDbIndexes = new HashMap<>();
+		final int timeoutSeconds                    = 10;
 
-		try (final Transaction tx = beginTx()) {
+		try {
 
-			/* Example full result of `CALL db.indexes`
-				{
-					"provider": {
-					  "version": "2.0",
-					  "key": "lucene+native"
-					},
-					"state": "ONLINE",
-					"description": "INDEX ON :Bank(BIC)",
-					"label": "Bank",
-					"properties": [
-					  "BIC"
-					],
-					"type": "node_label_property"		// possible values: node_label_property, node_unique_property
+			executor.submit(() -> {
+
+				try (final Transaction tx = beginTx(timeoutSeconds)) {
+
+					for (final Map<String, Object> row : execute("CALL db.indexes() YIELD description, state, type WHERE type = 'node_label_property' RETURN {description: description, state: state}")) {
+
+						for (final Object value : row.values()) {
+
+							final Map<String, String> valueMap = (Map<String, String>)value;
+
+							existingDbIndexes.put(valueMap.get("description"), valueMap.get("state"));
+						}
+					}
+
+					tx.success();
 				}
-			 */
 
-			for (final Map<String, Object> row : execute("CALL db.indexes() YIELD description, state, type WHERE type = 'node_label_property' RETURN {description: description, state: state}")) {
+			}).get(timeoutSeconds, TimeUnit.SECONDS);
 
-				for (final Object value : row.values()) {
-
-					final Map<String, String> valueMap = (Map<String, String>)value;
-
-					existingDbIndexes.put(valueMap.get("description"), valueMap.get("state"));
-				}
-			}
-
-			tx.success();
+		} catch (Throwable t) {
+			t.printStackTrace();
 		}
 
 		logger.debug("Found {} existing indexes", existingDbIndexes.size());
 
-		Integer createdIndexes = 0;
-		Integer droppedIndexes = 0;
+		final AtomicInteger createdIndexes = new AtomicInteger(0);
+		final AtomicInteger droppedIndexes = new AtomicInteger(0);
 
 		// create indices for properties of existing classes
-		for (final Map.Entry<String, Map<String, Boolean>> entry : schemaIndexConfig.entrySet()) {
+		for (final Map.Entry<String, Map<String, Boolean>> entry : schemaIndexConfigSource.entrySet()) {
 
 			final String typeName = entry.getKey();
 
 			for (final Map.Entry<String, Boolean> propertyIndexConfig : entry.getValue().entrySet()) {
 
-				final String indexDescription = "INDEX ON :" + typeName + "(" + propertyIndexConfig.getKey() + ")";
+				final String indexDescription = "INDEX ON :" + typeName + "(`" + propertyIndexConfig.getKey() + "`)";
 				final String state            = existingDbIndexes.get(indexDescription);
 				final boolean alreadySet      = Boolean.TRUE.equals("ONLINE".equals(state));
 				final boolean createIndex     = propertyIndexConfig.getValue();
@@ -538,132 +473,217 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 					logger.warn("Index is in FAILED state - dropping the index before handling it further. {}. If this error is recurring, please verify that the data in the concerned property is indexable by Neo4j", indexDescription);
 
-					try (final Transaction tx = beginTx()) {
+					final AtomicBoolean retry = new AtomicBoolean(true);
+					final AtomicInteger retryCount = new AtomicInteger(0);
 
-						execute("DROP " + indexDescription);
+					while (retry.get()) {
 
-						tx.success();
-
-					} catch (Throwable t) {
-						logger.warn("", t);
-					}
-				}
-
-
-				try (final Transaction tx = beginTx()) {
-
-					if (createIndex) {
-
-						if (!alreadySet) {
-
-							try {
-
-								execute("CREATE " + indexDescription);
-								createdIndexes++;
-
-							} catch (Throwable t) {
-								logger.warn("Unable to create {}: {}", indexDescription, t.getMessage());
-							}
-						}
-
-					} else if (alreadySet) {
+						retry.set(false);
 
 						try {
 
-							execute("DROP " + indexDescription);
-							droppedIndexes++;
+							executor.submit(() -> {
+
+								try (final Transaction tx = beginTx(timeoutSeconds)) {
+
+									execute("DROP " + indexDescription);
+
+									tx.success();
+
+								} catch (RetryException rex) {
+
+									retry.set(retryCount.incrementAndGet() < 3);
+									logger.info("DROP INDEX: retry {}", retryCount.get());
+
+								} catch (Throwable t) {
+									logger.warn("Unable to drop failed index: {}", t.getMessage());
+								}
+
+								return null;
+
+							}).get(timeoutSeconds, TimeUnit.SECONDS);
 
 						} catch (Throwable t) {
-							logger.warn("Unable to drop {}: {}", indexDescription, t.getMessage());
+							t.printStackTrace();
 						}
 					}
+				}
 
-					tx.success();
+				final AtomicBoolean retry = new AtomicBoolean(true);
+				final AtomicInteger retryCount = new AtomicInteger(0);
 
-				} catch (IllegalStateException i) {
+				while (retry.get()) {
 
-					// if the driver instance is already closed, there is nothing we can do => exit
-					return;
+					retry.set(false);
 
-				} catch (Throwable t) {
+					try {
 
-					logger.warn("Unable to update index configuration: {}", t.getMessage());
+						executor.submit(() -> {
+
+							try (final Transaction tx = beginTx(timeoutSeconds)) {
+
+								if (createIndex) {
+
+									if (!alreadySet) {
+
+										try {
+
+											execute("CREATE " + indexDescription);
+											createdIndexes.incrementAndGet();
+
+										} catch (Throwable t) {
+											logger.warn("Unable to create {}: {}", indexDescription, t.getMessage());
+										}
+									}
+
+								} else if (alreadySet && !createOnly) {
+
+									try {
+
+										execute("DROP " + indexDescription);
+										droppedIndexes.incrementAndGet();
+
+									} catch (Throwable t) {
+										logger.warn("Unable to drop {}: {}", indexDescription, t.getMessage());
+									}
+								}
+
+								tx.success();
+
+							} catch (RetryException rex) {
+
+								retry.set(retryCount.incrementAndGet() < 3);
+								logger.info("INDEX update: retry {}", retryCount.get());
+
+							} catch (IllegalStateException i) {
+
+								// if the driver instance is already closed, there is nothing we can do => exit
+								return;
+
+							} catch (Throwable t) {
+
+								logger.warn("Unable to update index configuration: {}", t.getMessage());
+							}
+
+						}).get(timeoutSeconds, TimeUnit.SECONDS);
+
+					} catch (Throwable t) {}
 				}
 			}
 		}
 
-		if (createdIndexes > 0) {
-			logger.debug("Created {} indexes", createdIndexes);
+		if (createdIndexes.get() > 0) {
+			logger.debug("Created {} indexes", createdIndexes.get());
 		}
 
-		if (droppedIndexes > 0) {
-			logger.debug("Dropped {} indexes", droppedIndexes);
+		if (droppedIndexes.get() > 0) {
+			logger.debug("Dropped {} indexes", droppedIndexes.get());
 		}
 
-		Integer droppedIndexesOfRemovedTypes = 0;
-		final List removedTypes = new LinkedList();
+		if (!createOnly) {
 
-		// drop indices for all indexed properties of removed classes
-		for (final Map.Entry<String, Map<String, Boolean>> entry : removedClasses.entrySet()) {
+			final AtomicInteger droppedIndexesOfRemovedTypes = new AtomicInteger(0);
+			final List removedTypes = new LinkedList();
 
-			final String typeName = entry.getKey();
-			removedTypes.add(typeName);
+			// drop indices for all indexed properties of removed classes
+			for (final Map.Entry<String, Map<String, Boolean>> entry : removedClassesSource.entrySet()) {
 
-			for (final Map.Entry<String, Boolean> propertyIndexConfig : entry.getValue().entrySet()) {
+				final String typeName = entry.getKey();
+				removedTypes.add(typeName);
 
-				final String indexDescription = "INDEX ON :" + typeName + "(" + propertyIndexConfig.getKey() + ")";
-				final boolean indexExists     = Boolean.TRUE.equals(existingDbIndexes.get(indexDescription));
-				final boolean dropIndex       = propertyIndexConfig.getValue();
+				for (final Map.Entry<String, Boolean> propertyIndexConfig : entry.getValue().entrySet()) {
 
-				if (indexExists && dropIndex) {
+					final String indexDescription = "INDEX ON :" + typeName + "(`" + propertyIndexConfig.getKey() + "`)";
+					final boolean indexExists     = Boolean.TRUE.equals(existingDbIndexes.get(indexDescription));
+					final boolean dropIndex       = propertyIndexConfig.getValue();
 
-					try (final Transaction tx = beginTx()) {
+					if (indexExists && dropIndex) {
 
-						// drop index
-						execute("DROP " + indexDescription);
-						droppedIndexesOfRemovedTypes++;
+						final AtomicBoolean retry = new AtomicBoolean(true);
+						final AtomicInteger retryCount = new AtomicInteger(0);
 
-						tx.success();
+						while (retry.get()) {
 
-					} catch (Throwable t) {
-						logger.warn("Unable to drop {}: {}", indexDescription, t.getMessage());
+							retry.set(false);
+
+							try {
+
+								executor.submit(() -> {
+
+									try (final Transaction tx = beginTx(timeoutSeconds)) {
+
+										// drop index
+										execute("DROP " + indexDescription);
+										droppedIndexesOfRemovedTypes.incrementAndGet();
+
+										tx.success();
+
+									} catch (RetryException rex) {
+
+										retry.set(retryCount.incrementAndGet() < 3);
+										logger.info("DROP INDEX: retry {}", retryCount.get());
+
+									} catch (Throwable t) {
+										logger.warn("Unable to drop {}: {}", indexDescription, t.getMessage());
+									}
+
+								}).get(timeoutSeconds, TimeUnit.SECONDS);
+
+							} catch (Throwable t) {}
+						}
 					}
 				}
 			}
-		}
 
-		if (droppedIndexesOfRemovedTypes > 0) {
-			logger.debug("Dropped {} indexes of deleted types ({})", droppedIndexesOfRemovedTypes, StringUtils.join(removedTypes, ", "));
+			if (droppedIndexesOfRemovedTypes.get() > 0) {
+				logger.debug("Dropped {} indexes of deleted types ({})", droppedIndexesOfRemovedTypes.get(), StringUtils.join(removedTypes, ", "));
+			}
 		}
 	}
 
 	@Override
-	public Iterable<Map<String, Object>> execute(final String nativeQuery) {
-		return execute(nativeQuery, Collections.EMPTY_MAP);
+	public boolean isIndexUpdateFinished() {
+		return true;
 	}
 
 	@Override
-	public Iterable<Map<String, Object>> execute(final String nativeQuery, final Map<String, Object> parameters) {
-		return getCurrentTransaction().run(nativeQuery, parameters);
+	public <T> T execute(final NativeQuery<T> nativeQuery) {
+
+		if (nativeQuery instanceof AbstractNativeQuery) {
+
+			return (T)((AbstractNativeQuery)nativeQuery).execute(getCurrentTransaction());
+		}
+
+		throw new IllegalArgumentException("Unsupported query type " + nativeQuery.getClass().getName() + ".");
+	}
+
+	@Override
+	public <T> NativeQuery<T> query(final Object query, final Class<T> resultType) {
+
+		if (!(query instanceof String)) {
+			throw new IllegalArgumentException("Unsupported query type " + query.getClass().getName() + ", expected String.");
+		}
+
+		return createQuery((String)query, resultType);
 	}
 
 	@Override
 	public void clearCaches() {
 
-		NodeCacheAccess.clearAllCaches();
-		RelationshipCacheAccess.clearAllCaches();
+		NodeWrapper.clearCache();
+		RelationshipWrapper.clearCache();
 	}
 
 	@Override
 	public void cleanDatabase() {
-		
+
 		final String tenantId = getTenantIdentifier();
 		if (tenantId != null) {
-			
+
 			execute("MATCH (n:" + tenantId + ") DETACH DELETE n", Collections.emptyMap());
 
 		} else {
-			
+
 			execute("MATCH (n) DETACH DELETE n", Collections.emptyMap());
 		}
 	}
@@ -683,15 +703,15 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 		return tx;
 	}
 
-	public boolean logQueries() {
+	boolean logQueries() {
 		return Settings.CypherDebugLogging.getValue();
 	}
 
-	public boolean logPingQueries() {
+	boolean logPingQueries() {
 		return Settings.CypherDebugLoggingPing.getValue();
 	}
 
-	public long unwrap(final Identity identity) {
+	long unwrap(final Identity identity) {
 
 		if (identity instanceof BoltIdentity) {
 
@@ -701,12 +721,45 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 		throw new IllegalArgumentException("This implementation cannot handle Identity objects of type " + identity.getClass().getName() + ".");
 	}
 
-	public Node getNodeById(final long id) {
+	Node getNodeById(final long id) {
 		return NodeWrapper.newInstance(this, id);
 	}
 
-	public Relationship getRelationshipById(final long id) {
+	Relationship getRelationshipById(final long id) {
 		return RelationshipWrapper.newInstance(this, id);
+	}
+
+	Iterable<Map<String, Object>> execute(final String nativeQuery) {
+		return execute(nativeQuery, Collections.EMPTY_MAP);
+	}
+
+	Iterable<Map<String, Object>> execute(final String nativeQuery, final Map<String, Object> parameters) {
+		return getCurrentTransaction().run(nativeQuery, parameters);
+	}
+
+	TransactionConfig getTransactionConfig(final long id) {
+
+		final Map<String, Object> metadata = new HashMap<>();
+
+		metadata.put("id", id);
+
+		return TransactionConfig
+			.builder()
+			.withMetadata(metadata)
+			.build();
+	}
+
+	TransactionConfig getTransactionConfigForTimeout(final int seconds, final long id) {
+
+		final Map<String, Object> metadata = new HashMap<>();
+
+		metadata.put("id", id);
+
+		return TransactionConfig
+			.builder()
+			.withTimeout(Duration.ofSeconds(seconds))
+			.withMetadata(metadata)
+			.build();
 	}
 
 	// ----- interface GraphProperties -----
@@ -759,6 +812,34 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 		final long relCount   = getCount("MATCH (n" + part + ":NodeInterface)-[r]->() RETURN count(r) AS count", "count");
 
 		return new CountResult(nodeCount, relCount);
+	}
+
+	@Override
+	public boolean supportsFeature(final DatabaseFeature feature, final Object... parameters) {
+
+		switch (feature) {
+
+			case LargeStringIndexing:
+				return false;
+
+			case QueryLanguage:
+
+				final String param = getStringParameter(parameters);
+				if (param != null) {
+
+					return supportedQueryLanguages.contains(param.toLowerCase());
+				}
+
+			case SpatialQueries:
+				return true;
+		}
+
+		return false;
+	}
+
+	@Override
+	public String getErrorMessage() {
+		return errorMessage;
 	}
 
 	// ----- private methods -----
@@ -817,5 +898,150 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 		}
 
 		return 0;
+	}
+
+	// ----- nested classes -----
+	private static class TypePredicate implements TypeQuery {
+
+		protected String mainType = null;
+		protected String name     = null;
+
+		public TypePredicate() {
+		}
+
+		public TypePredicate(final String mainType) {
+			this.mainType = mainType;
+		}
+
+		@Override
+		public Class getSourceType() {
+			return null;
+		}
+
+		@Override
+		public Class getTargetType() {
+			return null;
+		}
+
+		@Override
+		public Class getQueryType() {
+			return TypeQuery.class;
+		}
+
+		@Override
+		public String getName() {
+			return "type";
+		}
+
+		@Override
+		public Class getType() {
+			return String.class;
+		}
+
+		@Override
+		public Object getValue() {
+			return mainType;
+		}
+
+		@Override
+		public String getLabel() {
+			return null;
+		}
+
+		@Override
+		public Occurrence getOccurrence() {
+			return Occurrence.REQUIRED;
+		}
+
+		@Override
+		public boolean isExactMatch() {
+			return true;
+		}
+
+		@Override
+		public SortOrder getSortOrder() {
+			return null;
+		}
+	}
+
+	private static class TypePropertyPredicate implements ExactQuery {
+
+		protected String type = null;
+
+		public TypePropertyPredicate(final String type) {
+			this.type = type;
+		}
+
+		@Override
+		public Class getQueryType() {
+			return ExactQuery.class;
+		}
+
+		@Override
+		public String getName() {
+			return "type";
+		}
+
+		@Override
+		public Class getType() {
+			return String.class;
+		}
+
+		@Override
+		public Object getValue() {
+			return type;
+		}
+
+		@Override
+		public String getLabel() {
+			return null;
+		}
+
+		@Override
+		public Occurrence getOccurrence() {
+			return Occurrence.REQUIRED;
+		}
+
+		@Override
+		public boolean isExactMatch() {
+			return true;
+		}
+
+		@Override
+		public SortOrder getSortOrder() {
+			return null;
+		}
+
+	}
+
+	private <T> NativeQuery<T> createQuery(final String query, final Class<T> type) {
+
+		if (Iterable.class.equals(type)) {
+			return (NativeQuery<T>)new IterableQuery(query);
+		}
+
+		if (Boolean.class.equals(type)) {
+			return (NativeQuery<T>)new BooleanQuery(query);
+		}
+
+		if (Long.class.equals(type)) {
+			return (NativeQuery<T>)new LongQuery(query);
+		}
+
+		return null;
+	}
+
+	private String getStringParameter(final Object[] parameters) {
+
+		if (parameters != null && parameters.length > 0) {
+
+			final Object param = parameters[0];
+			if (param instanceof String) {
+
+				return (String)param;
+			}
+		}
+
+		return null;
 	}
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -74,9 +74,9 @@ import org.structr.schema.SchemaService;
 import org.structr.schema.action.ActionContext;
 import org.structr.schema.action.Function;
 import org.structr.schema.action.JavaScriptSource;
-import org.structr.schema.json.JsonMethod;
-import org.structr.schema.json.JsonObjectType;
-import org.structr.schema.json.JsonSchema;
+import org.structr.api.schema.JsonMethod;
+import org.structr.api.schema.JsonObjectType;
+import org.structr.api.schema.JsonSchema;
 import org.structr.web.common.ClosingFileOutputStream;
 import org.structr.web.common.FileHelper;
 import org.structr.web.common.RenderContext;
@@ -232,6 +232,14 @@ public interface File extends AbstractFile, Indexable, Linkable, JavaScriptSourc
 			.addParameter("ctx", SecurityContext.class.getName())
 			.setReturnType("java.lang.String")
 			.setSource("return " + File.class.getName() + ".getXMLStructure(this);")
+			.addException(FrameworkException.class.getName())
+			.setDoExport(true);
+
+		type.addMethod("extractStructure")
+			.addParameter("ctx", SecurityContext.class.getName())
+			.addParameter("parameters", "java.util.Map<java.lang.String, java.lang.Object>")
+			.setReturnType("java.util.Map<java.lang.String, java.lang.Object>")
+			.setSource("return " + File.class.getName() + ".extractStructure(this);")
 			.addException(FrameworkException.class.getName())
 			.setDoExport(true);
 
@@ -423,7 +431,7 @@ public interface File extends AbstractFile, Indexable, Linkable, JavaScriptSourc
 				for (AbstractMinifiedFile minifiedFile : targets) {
 
 					try {
-						minifiedFile.minify();
+						minifiedFile.minify(thisFile.getSecurityContext());
 					} catch (IOException ex) {
 						logger.warn("Could not automatically update minification target: ".concat(minifiedFile.getName()), ex);
 					}
@@ -881,6 +889,11 @@ public interface File extends AbstractFile, Indexable, Linkable, JavaScriptSourc
 
 		// default to setting in security context
 		return thisFile.getSecurityContext().doIndexing();
+	}
+
+	static Map<String, Object> extractStructure(final File thisFile) throws FrameworkException {
+		StructrApp.getInstance(thisFile.getSecurityContext()).getContentAnalyzer().analyzeContent(thisFile);
+		return null;
 	}
 
 	// ----- interface JavaScriptSource -----

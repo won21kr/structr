@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -69,12 +69,15 @@ import org.structr.web.entity.File;
 public class FulltextIndexingAgent extends Agent<String> {
 
 	private static final Logger logger = LoggerFactory.getLogger(FulltextIndexingAgent.class.getName());
-	private static final Map<String, Set<String>> languageStopwordMap = new LinkedHashMap<>();
+	static final Map<String, Set<String>> languageStopwordMap = new LinkedHashMap<>();
 	public static final String TASK_NAME                              = "FulltextIndexing";
 
 	private final Detector detector;
 
 	public FulltextIndexingAgent() {
+
+		setName(TASK_NAME);
+		setDaemon(true);
 
 		detector = new DefaultDetector(MimeTypes.getDefaultMimeTypes());
 	}
@@ -85,7 +88,7 @@ public class FulltextIndexingAgent extends Agent<String> {
 		final SecurityContext securityContext = SecurityContext.getSuperUserInstance();
 		final App app                         = StructrApp.getInstance(securityContext);
 
-		securityContext.disableEnsureCardinality();
+		securityContext.disablePreventDuplicateRelationships();
 
 		if (TASK_NAME.equals(task.getType())) {
 

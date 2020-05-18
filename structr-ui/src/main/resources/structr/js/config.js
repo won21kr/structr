@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -45,7 +45,7 @@ function resetToDefault(key) {
 
 function resize() {
 	$('.tab-content').css({
-		height: $(window).height() - 160 - $('#configTabsMenu').height() + 'px'
+		height: $(window).height() - $('#header').height() - $('#configTabs .tabs-menu').height() - 60 + 'px'
 	});
 }
 
@@ -146,6 +146,10 @@ $(function () {
 			target.val(parts.filter(function(e) { return e && e.length; }).join(' '));
 		}
 	});
+
+	$('.new-connection.collapsed').on('click', function() {
+		$(this).removeClass('collapsed');
+	});
 });
 
 
@@ -196,6 +200,14 @@ let doSearch = (q) => {
 				if (input.value && containsIgnoreCase(input.value, q)) {
 					hitInFormGroup = true;
 					input.classList.add(hitClass);
+				}
+			});
+
+			// textarea
+			formGroup.querySelectorAll('textarea').forEach((textarea) => {
+				if (textarea.value && containsIgnoreCase(textarea.value, q)) {
+					hitInFormGroup = true;
+					textarea.classList.add(hitClass);
 				}
 			});
 
@@ -276,9 +288,10 @@ let containsIgnoreCase = (haystack, needle) => {
 
 let initSearch = () => {
 
-	let isLogin = document.getElementById('login');
+	let isLogin   = document.getElementById('login');
+	let isWelcome = document.getElementById('welcome');
 
-	if (!isLogin) {
+	if (!isLogin && !isWelcome) {
 
 		let header = document.getElementById('header');
 
@@ -328,3 +341,236 @@ let initSearch = () => {
 };
 
 document.addEventListener('DOMContentLoaded', initSearch);
+
+function collectData(name) {
+
+	if (!name) {
+		name = 'structr-new-connection';
+	}
+
+	let nameInput   = $('input#name-' + name);
+	let urlInput    = $('input#url-' + name);
+	let userInput   = $('input#username-' + name);
+	let pwdInput    = $('input#password-' + name);
+	let nowCheckbox = $('input#connect-checkbox');
+
+	nameInput.parent().removeClass();
+	urlInput.parent().removeClass();
+	userInput.parent().removeClass();
+	pwdInput.parent().removeClass();
+
+	let data = {
+		name:     nameInput.val(),
+		url:      urlInput.val(),
+		username: userInput.val(),
+		password: pwdInput.val(),
+		now:      nowCheckbox && nowCheckbox.is(':checked'),
+		active_section: '#databases'
+	};
+
+	return data;
+}
+
+function addConnection(button) {
+
+	let name = 'structr-new-connection';
+	let data = collectData();
+
+	button.dataset.text = button.innerHTML;
+	button.disabled     = true;
+
+	if (data.now) {
+		button.innerHTML = 'Connecting..';
+	}
+
+	let status = $('div#status-' + name);
+	status.addClass('hidden');
+	status.empty();
+
+	if (data.now) {
+		_Config.showNonBlockUILoadingMessage('Connection is being established', 'Please wait...');
+	}
+
+	$.ajax({
+		type: 'post',
+		url: '/structr/config/add',
+		data: data,
+		statusCode: {
+			200: reload,
+			302: reload,
+			422: response => handleErrorResponse(name, response, button),
+			503: response => handleErrorResponse(name, response, button)
+		}
+	});
+}
+
+function deleteConnection(name) {
+
+	$.ajax({
+		type: 'post',
+		url: '/structr/config/' + name + '/delete',
+		data: {
+			'active_section': '#databases'
+		},
+		statusCode: {
+			200: reload,
+			302: reload,
+			422: response => handleErrorResponse(name, response),
+			503: response => handleErrorResponse(name, response)
+		}
+	});
+}
+
+function setNeo4jDefaults() {
+	$('#name-structr-new-connection').val('neo4j-localhost-7687');
+	$('#url-structr-new-connection').val('bolt://localhost:7687');
+	$('#username-structr-new-connection').val('neo4j');
+	$('#password-structr-new-connection').val('neo4j');
+}
+
+function saveConnection(name) {
+
+	let data = collectData(name);
+
+	if (data.now) {
+		_Config.showNonBlockUILoadingMessage('Connection is being established', 'Please wait...');
+	}
+
+	$.ajax({
+		type: 'post',
+		url: '/structr/config/' + name + '/use',
+		data: data,
+		statusCode: {
+			200: reload,
+			302: reload,
+			422: response => handleErrorResponse(name, response),
+			503: response => handleErrorResponse(name, response)
+		}
+	});
+}
+
+function reload(response) {
+
+	_Config.hideNonBlockUILoadingMessage();
+
+	window.location.href = '/structr/config#databases';
+	window.location.reload(true);
+}
+
+function connect(button, name) {
+
+	button.disabled = true;
+	button.dataset.text = button.innerHTML;
+	button.innerHTML = 'Connecting..';
+
+	let status = $('div#status-' + name);
+	status.addClass('hidden');
+	status.empty();
+
+	_Config.showNonBlockUILoadingMessage('Connection is being established', 'Please wait...');
+
+	$.ajax({
+		type: 'post',
+		url: '/structr/config/' + name + '/connect',
+		data: collectData(name),
+		statusCode: {
+			200: reload,
+			302: reload,
+			422: response => handleErrorResponse(name, response, button),
+			503: response => handleErrorResponse(name, response, button)
+		}
+	});
+}
+
+function disconnect(button, name) {
+
+	button.disabled = true;
+	button.dataset.text = button.innerHTML;
+	button.innerHTML = 'Disconnecting..';
+
+	let status = $('div#status-' + name);
+	status.addClass('hidden');
+	status.empty();
+
+	_Config.showNonBlockUILoadingMessage('Database is being disconnected', 'Please wait...');
+
+	$.ajax({
+		type: 'post',
+		url: '/structr/config/' + name + '/disconnect',
+		data: collectData(name),
+		statusCode: {
+			200: reload,
+			302: reload,
+			422: response => handleErrorResponse(name, response, button),
+			503: response => handleErrorResponse(name, response, button)
+		}
+	});
+}
+
+function handleErrorResponse(name, response, button) {
+
+	_Config.hideNonBlockUILoadingMessage();
+
+	let json = response.responseJSON;
+
+	if (!name) {
+		name = 'structr-new-connection';
+	}
+
+	if (button) {
+		button.disabled = false;
+		button.innerHTML = button.dataset.text;
+	}
+
+	switch (response.status) {
+
+		case 422:
+			if (json.errors && json.errors.length) {
+
+				json.errors.forEach(t => {
+					if (t.property !== undefined && t.token !== undefined) {
+						$('input#' + t.property + '-' + name).parent().addClass(t.token);
+					}
+				});
+
+			} else {
+
+				let status = $('div#status-' + name);
+				status.empty();
+				status.append(json.message);
+				status.removeClass('hidden');
+			}
+			break;
+
+		case 503:
+			let status = $('div#status-' + name);
+			status.empty();
+			status.append(json.message);
+			status.removeClass('hidden');
+			break;
+	}
+}
+
+
+
+_Config = {
+	nonBlockUIBlockerId: 'non-block-ui-blocker',
+	nonBlockUIBlockerContentId: 'non-block-ui-blocker-content',
+	showNonBlockUILoadingMessage: function(title, text) {
+
+		var messageTitle = title || 'Executing Task';
+		var messageText  = text || 'Please wait until the operation has finished...';
+
+		let pageBlockerDiv = $('<div id="' + _Config.nonBlockUIBlockerId +'"></div>');
+
+		let messageDiv = $('<div id="' + _Config.nonBlockUIBlockerContentId +'"></div>');
+		messageDiv.html('<img src="' + _Icons.getSpinnerImageAsData() + '"> <b>' + messageTitle + '</b><br><br>' + messageText);
+
+		$('body').append(pageBlockerDiv);
+		$('body').append(messageDiv);
+	},
+	hideNonBlockUILoadingMessage: function() {
+		$('#' + _Config.nonBlockUIBlockerId).remove();
+		$('#' + _Config.nonBlockUIBlockerContentId).remove();
+	}
+};

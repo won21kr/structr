@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -18,8 +18,10 @@
  */
 package org.structr.web.importer;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.mozilla.javascript.Script;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,7 +142,12 @@ public class ScriptJob extends ScheduledJob {
 		jobInfo.put("jobName",         jobName);
 
 		if (getEncounteredException() != null) {
-			jobInfo.put("exception", getEncounteredException().getMessage());
+
+			final HashMap exceptionMap = new HashMap();
+			exceptionMap.put("message", getEncounteredException().getMessage());
+			exceptionMap.put("cause", getEncounteredException().getCause());
+			exceptionMap.put("stacktrace", ExceptionUtils.getStackTrace(getEncounteredException()));
+			jobInfo.put("exception", exceptionMap);
 		}
 
 		return jobInfo;

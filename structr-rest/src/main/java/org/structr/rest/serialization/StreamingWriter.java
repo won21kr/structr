@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -23,6 +23,7 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.text.SimpleDateFormat;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -36,9 +37,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.apache.commons.collections4.ListUtils;
+import org.eclipse.jetty.io.QuietException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.structr.api.config.Settings;
+import org.structr.api.util.ProgressWatcher;
 import org.structr.api.util.ResultStream;
 import org.structr.common.PropertyView;
 import org.structr.common.QueryRange;
@@ -144,53 +147,84 @@ public abstract class StreamingWriter {
 
 		final RestWriter rootWriter = getRestWriter(securityContext, output);
 
-		configureWriter(rootWriter);
+			configureWriter(rootWriter);
 
-		// result fields in alphabetical order
-		final Set<Integer> visitedObjects             = new LinkedHashSet<>();
-		final String queryTime                        = result.getQueryTime();
-		final Integer page                            = result.getPage();
-		final Integer pageSize                        = result.getPageSize();
+			// result fields in alphabetical order
+			final Set<Integer> visitedObjects = new LinkedHashSet<>();
+			final String queryTime            = result.getQueryTime();
+			final Integer page                = result.getPage();
+			final Integer pageSize            = result.getPageSize();
+			final int softLimit               = securityContext.getSoftLimit(pageSize);
+			long actualResultCount            = 0L;
 
-		rootWriter.beginDocument(baseUrl, propertyView.get(securityContext));
-		rootWriter.beginObject();
+			// make pageSize available to nested serializers
+			rootWriter.setPageSize(pageSize);
 
-		if (result != null) {
+			rootWriter.beginDocument(baseUrl, propertyView.get(securityContext));
+			rootWriter.beginObject();
 
-			rootWriter.name(resultKeyName);
-			root.serializeRoot(rootWriter, result, propertyView.get(securityContext), 0, visitedObjects);
-		}
+			if (result != null) {
 
-		if (includeMetadata) {
+				rootWriter.name(resultKeyName);
 
-			// time delta for serialization
-			long t1 = System.nanoTime();
+				actualResultCount = root.serializeRoot(rootWriter, result, propertyView.get(securityContext), 0, visitedObjects);
 
-			if (pageSize != null && !pageSize.equals(Integer.MAX_VALUE)) {
+				rootWriter.flush();
+			}
 
-				if (page != null) {
+			if (includeMetadata) {
 
-					rootWriter.name("page").value(page);
+				long t1         = System.nanoTime(); // time delta for serialization
+				int resultCount = -1;
+				int pageCount   = -1;
+
+				if (pageSize != null && !pageSize.equals(Integer.MAX_VALUE)) {
+
+					if (page != null) {
+
+						rootWriter.name("page").value(page);
+					}
+
+					rootWriter.name("page_size").value(pageSize);
 				}
 
-				rootWriter.name("page_size").value(pageSize);
-			}
+				if (queryTime != null) {
+					rootWriter.name("query_time").value(queryTime);
+				}
 
-			if (queryTime != null) {
-				rootWriter.name("query_time").value(queryTime);
-			}
+				if (actualResultCount == Settings.ResultCountSoftLimit.getValue()) {
 
-			if (!securityContext.ignoreResultCount()) {
+					rootWriter.name("info").beginObject();
+					rootWriter.name("message").value("Result size limited");
+					rootWriter.name("limit").value(Settings.ResultCountSoftLimit.getValue());
+					rootWriter.name("result_size").value(actualResultCount);
+					rootWriter.name("hint").value("Use pageSize parameter to avoid automatic response size limit");
+					rootWriter.endObject();
+				}
 
-				rootWriter.name("result_count").value(result.calculateTotalResultCount());
-				rootWriter.name("page_count").value(result.calculatePageCount());
-				rootWriter.name("result_count_time").value(decimalFormat.format((System.nanoTime() - t1) / 1000000000.0));
-			}
+				// make output available immediately
+				rootWriter.flush();
 
-			if (renderSerializationTime) {
-				rootWriter.name("serialization_time").value(decimalFormat.format((System.nanoTime() - t0) / 1000000000.0));
+				try (final JsonProgressWatcher watcher = new JsonProgressWatcher(rootWriter, 5000L)) {
+
+					final int countLimit = securityContext.forceResultCount() ? Integer.MAX_VALUE : softLimit;
+
+					resultCount = result.calculateTotalResultCount(watcher, countLimit);
+					pageCount   = result.calculatePageCount(watcher, countLimit);
+				}
+
+				if (resultCount >= 0 && pageCount >= 0) {
+
+					rootWriter.name("result_count").value(resultCount);
+					rootWriter.name("page_count").value(pageCount);
+					rootWriter.name("result_count_time").value(decimalFormat.format((System.nanoTime() - t1) / 1000000000.0));
+
+				}
+
+				if (renderSerializationTime) {
+					rootWriter.name("serialization_time").value(decimalFormat.format((System.nanoTime() - t0) / 1000000000.0));
+				}
 			}
-		}
 
 		// finished
 		rootWriter.endObject();
@@ -259,7 +293,7 @@ public abstract class StreamingWriter {
 		}
 	}
 
-	private void serializePrimitive(RestWriter writer, final Object value) throws IOException {
+	private long serializePrimitive(RestWriter writer, final Object value) throws IOException {
 
 		if (value != null) {
 
@@ -280,6 +314,8 @@ public abstract class StreamingWriter {
 
 			writer.nullValue();
 		}
+
+		return 1;
 	}
 
 	private void configureWriter(final RestWriter writer) {
@@ -293,25 +329,23 @@ public abstract class StreamingWriter {
 	// ----- nested classes -----
 	public abstract class Serializer<T> {
 
-		public abstract void serialize(final RestWriter writer, final T value, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException;
+		public abstract long serialize(final RestWriter writer, final T value, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException;
 
-		public void serializeRoot(final RestWriter writer, final Object value, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
+		public long serializeRoot(final RestWriter writer, final Object value, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
 
 			if (value != null) {
 
 				Serializer serializer = getSerializerForType(value.getClass());
 				if (serializer != null) {
 
-					serializer.serialize(writer, value, localPropertyView, depth, visitedObjects);
-
-					return;
+					return serializer.serialize(writer, value, localPropertyView, depth, visitedObjects);
 				}
 			}
 
-			serializePrimitive(writer, value);
+			return serializePrimitive(writer, value);
 		}
 
-		public void serializeProperty(final RestWriter writer, final PropertyKey key, final Object value, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) {
+		public long serializeProperty(final RestWriter writer, final PropertyKey key, final Object value, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) {
 
 			final SecurityContext securityContext = writer.getSecurityContext();
 
@@ -319,36 +353,44 @@ public abstract class StreamingWriter {
 				final PropertyConverter converter = key.inputConverter(securityContext);
 				if (converter != null) {
 
-					Object convertedValue = null;
+					Object convertedValue = value;
 
 					// ignore conversion errors
 					try { convertedValue = converter.revert(value); } catch (Throwable t) {}
 
-					serializeRoot(writer, convertedValue, localPropertyView, depth, visitedObjects);
+					return serializeRoot(writer, convertedValue, localPropertyView, depth, visitedObjects);
 
 				} else {
 
-					serializeRoot(writer, value, localPropertyView, depth, visitedObjects);
+					return serializeRoot(writer, value, localPropertyView, depth, visitedObjects);
 				}
 
 			} catch(Throwable t) {
 
-				logger.warn("Exception while serializing property {} ({}) declared in {} with valuetype {} (value = {}) : {}", new Object[] {
-					key.jsonName(),
-					key.getClass(),
-					key.getClass().getDeclaringClass(),
-					value.getClass().getName(),
-					value,
-					t.getMessage()
-				});
+				if (t instanceof QuietException || t.getCause() instanceof QuietException) {
+					// ignore exceptions which (by jettys standards) should be handled less verbosely
+				} else if (t instanceof IllegalStateException && t.getCause() == null && (t.getMessage() == null || t.getMessage().equals("Nesting problem."))) {
+					// ignore exception. it is probably caused by a canceled request/closed connection which caused the JsonWriter to tilt
+				} else {
+					logger.warn("Exception while serializing property {} ({}) declared in {} with valuetype {} (value = {}) : {}", new Object[] {
+						key.jsonName(),
+						key.getClass(),
+						key.getClass().getDeclaringClass(),
+						value.getClass().getName(),
+						value,
+						t.getMessage()
+					});
+				}
 			}
+
+			return 0L;
 		}
 	}
 
 	public class RootSerializer extends Serializer<GraphObject> {
 
 		@Override
-		public void serialize(final RestWriter writer, final GraphObject source, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
+		public long serialize(final RestWriter writer, final GraphObject source, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
 
 			int hashCode = -1;
 
@@ -415,17 +457,23 @@ public abstract class StreamingWriter {
 				// unmark (visiting only counts for children)
 				visitedObjects.remove(hashCode);
 			}
+
+			return 1;
 		}
 	}
 
 	public class IterableSerializer extends Serializer<Iterable> {
 
 		@Override
-		public void serialize(final RestWriter parentWriter, final Iterable value, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
+		public long serialize(final RestWriter parentWriter, final Iterable value, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
 
-			final Iterator iterator  = value.iterator();
-			final Object firstValue  = iterator.hasNext() ? iterator.next() : null;
-			final Object secondValue = iterator.hasNext() ? iterator.next() : null;
+			final SecurityContext securityContext = parentWriter.getSecurityContext();
+			final int pageSize                    = parentWriter.getPageSize();
+			final int softLimit                   = securityContext.getSoftLimit(pageSize);
+			final Iterator iterator               = value.iterator();
+			final Object firstValue               = iterator.hasNext() ? iterator.next() : null;
+			final Object secondValue              = iterator.hasNext() ? iterator.next() : null;
+			long actualResultCount                = 0;
 
 			if (!wrapSingleResultInArray && depth == 0 && firstValue != null && secondValue == null && !Settings.ForceArrays.getValue()) {
 
@@ -445,30 +493,42 @@ public abstract class StreamingWriter {
 					// first value?
 					if (firstValue != null) {
 						serializeRoot(parentWriter, firstValue, localPropertyView, depth, visitedObjects);
+						actualResultCount++;
 					}
 
 					// second value?
 					if (secondValue != null) {
 
 						serializeRoot(parentWriter, secondValue, localPropertyView, depth, visitedObjects);
+						actualResultCount++;
 
 						// more values?
 						while (iterator.hasNext()) {
 
 							serializeRoot(parentWriter, iterator.next(), localPropertyView, depth, visitedObjects);
+
+							actualResultCount++;
+
+ 							if (actualResultCount == softLimit) {
+								break;
+							}
 						}
 					}
 				}
 
 				parentWriter.endArray();
 			}
+
+			return actualResultCount;
 		}
 	}
 
 	public class MapSerializer extends Serializer<Map<String, Object>> {
 
 		@Override
-		public void serialize(final RestWriter writer, final Map<String, Object> source, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
+		public long serialize(final RestWriter writer, final Map<String, Object> source, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
+
+			long count = 0L;
 
 			writer.beginObject();
 
@@ -481,11 +541,13 @@ public abstract class StreamingWriter {
 					Object value = entry.getValue();
 
 					writer.name(key);
-					serializeRoot(writer, value, localPropertyView, depth+1, visitedObjects);
+					count = serializeRoot(writer, value, localPropertyView, depth+1, visitedObjects);
 				}
 			}
 
 			writer.endObject();
+
+			return count;
 		}
 	}
 
@@ -494,7 +556,9 @@ public abstract class StreamingWriter {
 		public PropertyMapSerializer() {}
 
 		@Override
-		public void serialize(final RestWriter writer, final PropertyMap source, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
+		public long serialize(final RestWriter writer, final PropertyMap source, final String localPropertyView, final int depth, final Set<Integer> visitedObjects) throws IOException {
+
+			long count = 0;
 
 			writer.beginObject();
 
@@ -507,11 +571,13 @@ public abstract class StreamingWriter {
 					final Object value      = entry.getValue();
 
 					writer.name(key.jsonName());
-					serializeProperty(writer, key, value, localPropertyView, depth+1, visitedObjects);
+					count = serializeProperty(writer, key, value, localPropertyView, depth+1, visitedObjects);
 				}
 			}
 
 			writer.endObject();
+
+			return count;
 		}
 	}
 
@@ -580,7 +646,7 @@ public abstract class StreamingWriter {
 	}
 
 	private String getString(final Object value) {
-		
+
 		if (value != null) {
 			return value.toString();
 		}
@@ -591,5 +657,63 @@ public abstract class StreamingWriter {
 	private interface Operation {
 
 		public void run(final RestWriter writer, final Object o, final Set<Integer> visitedObjects) throws IOException;
+	}
+
+	private static class JsonProgressWatcher implements ProgressWatcher, AutoCloseable {
+
+		private final SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd-HHmmss");
+		private long lastUpdate           = System.currentTimeMillis();
+		private boolean hasWritten        = false;
+		private long interval             = 5000L;
+		private RestWriter writer         = null;
+
+		public JsonProgressWatcher(final RestWriter writer, final long interval) {
+
+			this.interval = interval;
+			this.writer   = writer;
+		}
+
+		@Override
+		public boolean okToContinue(final int progress) {
+
+			final long now = System.currentTimeMillis();
+
+			if (now > lastUpdate + interval) {
+
+				lastUpdate = now;
+
+				try {
+
+					// start array when writing the first entry (might not write anything)
+					if (!hasWritten) {
+
+						writer.name("status").value("Calculating overall result count");
+						writer.name("progress");
+						writer.beginArray();
+						hasWritten = true;
+					}
+
+					writer.beginObject();
+					writer.name("timestamp").value(df.format(System.currentTimeMillis()));
+					writer.name("result_count").value(progress);
+					writer.endObject();
+
+					writer.flush();
+
+				} catch (IOException ioex) {
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		@Override
+		public void close() throws IOException {
+
+			if (hasWritten) {
+				writer.endArray();
+			}
+		}
 	}
 }

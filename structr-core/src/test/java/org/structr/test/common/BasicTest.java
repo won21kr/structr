@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -19,6 +19,7 @@
 package org.structr.test.common;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
@@ -28,9 +29,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.structr.api.NotFoundException;
 import org.structr.api.NotInTransactionException;
+import org.structr.api.config.Settings;
 import org.structr.api.util.Iterables;
+import org.structr.api.util.ResultStream;
 import org.structr.common.AccessMode;
-import org.structr.common.GraphObjectComparator;
 import org.structr.common.RelType;
 import org.structr.common.SecurityContext;
 import org.structr.common.error.FrameworkException;
@@ -40,6 +42,7 @@ import org.structr.core.app.StructrApp;
 import org.structr.core.entity.AbstractNode;
 import org.structr.core.entity.AbstractRelationship;
 import org.structr.core.entity.GenericNode;
+import org.structr.core.entity.GenericRelationship;
 import org.structr.core.entity.Group;
 import org.structr.core.entity.Principal;
 import org.structr.core.entity.Relation;
@@ -47,7 +50,6 @@ import org.structr.core.entity.SchemaNode;
 import org.structr.core.entity.SchemaProperty;
 import org.structr.core.entity.SchemaRelationshipNode;
 import org.structr.core.entity.Security;
-import org.structr.core.entity.relationship.NodeHasLocation;
 import org.structr.core.entity.relationship.PrincipalOwnsNode;
 import org.structr.core.graph.NodeAttribute;
 import org.structr.core.graph.NodeInterface;
@@ -110,6 +112,74 @@ public class BasicTest extends StructrTest {
 			assertNotNull("Invalid simple object creation result", test);
 			assertEquals("Invalid simple object creation result", "name", test.getProperty(AbstractNode.name));
 			assertEquals("Invalid simple object creation result", null,   test.getProperty(TestSix.oneToOneTestThree));
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fex.printStackTrace();
+			fail("Unexpected exception");
+		}
+	}
+
+	@Test
+	public void testQuerySoftLimit() {
+
+		Settings.ResultCountSoftLimit.setValue(100);
+		Settings.FetchSize.setValue(100);
+
+		final int num = 3234;
+		int total     = 0;
+
+		System.out.println("Creating " + num + " elements..");
+
+		try (final Tx tx = app.tx()) {
+
+			for (int i=0; i<num; i++) {
+				app.create(TestSix.class);
+			}
+
+			tx.success();
+
+		} catch (FrameworkException fex) {
+			fex.printStackTrace();
+			fail("Unexpected exception");
+		}
+
+		System.out.println("Done.");
+
+		try (final Tx tx = app.tx()) {
+
+			int count = 0;
+
+			try (final ResultStream<TestSix> results = app.nodeQuery(TestSix.class).getResultStream()) {
+
+				for (TestSix test : results) {
+					count++;
+				}
+
+				total = results.calculateTotalResultCount(null, Settings.ResultCountSoftLimit.getValue());
+			}
+
+			System.out.println(count + " / " + total);
+
+			assertEquals("Invalid result count", num, count);
+			assertEquals("Invalid total count", num, total);
+
+			tx.success();
+
+		} catch (Exception fex) {
+			fex.printStackTrace();
+			fail("Unexpected exception");
+		}
+
+		try (final Tx tx = app.tx()) {
+
+			try (final ResultStream<TestSix> results = app.nodeQuery(TestSix.class).getResultStream()) {
+
+				if (results.iterator().hasNext()) {
+					results.iterator().next();
+				}
+			}
 
 			tx.success();
 
@@ -1129,14 +1199,14 @@ public class BasicTest extends StructrTest {
 			final List<GenericNode> nodes = createTestNodes(GenericNode.class, 2);
 			final NodeInterface startNode = nodes.get(0);
 			final NodeInterface endNode   = nodes.get(1);
-			NodeHasLocation rel           = null;
+			GenericRelationship rel       = null;
 
 			assertTrue(startNode != null);
 			assertTrue(endNode != null);
 
 			try (final Tx tx = app.tx()) {
 
-				rel = app.create(startNode, endNode, NodeHasLocation.class);
+				rel = app.create(startNode, endNode, GenericRelationship.class);
 				tx.success();
 			}
 
@@ -1144,8 +1214,8 @@ public class BasicTest extends StructrTest {
 
 				assertEquals(startNode.getUuid(), rel.getSourceNodeId());
 				assertEquals(endNode.getUuid(), rel.getTargetNodeId());
-				assertEquals(RelType.IS_AT.name(), rel.getType());
-				assertEquals(NodeHasLocation.class, rel.getClass());
+				assertEquals("GENERIC", rel.getType());
+				assertEquals(GenericRelationship.class, rel.getClass());
 			}
 
 		} catch (FrameworkException ex) {
@@ -1347,9 +1417,9 @@ public class BasicTest extends StructrTest {
 
 		try {
 
-			final NodeHasLocation rel = (createTestRelationships(NodeHasLocation.class, 1)).get(0);
-			final PropertyKey key1         = new StringProperty("jghsdkhgshdhgsdjkfgh");
-			final String val1              = "54354354546806849870";
+			final GenericRelationship rel = (createTestRelationships(GenericRelationship.class, 1)).get(0);
+			final PropertyKey key1        = new StringProperty("jghsdkhgshdhgsdjkfgh");
+			final String val1             = "54354354546806849870";
 
 			try (final Tx tx = app.tx()) {
 
@@ -1455,7 +1525,7 @@ public class BasicTest extends StructrTest {
 
 			try (final Tx tx = app.tx()) {
 
-				GraphObjectComparator comp = new GraphObjectComparator(TestOne.anInt, GraphObjectComparator.ASCENDING);
+				Comparator comp = TestOne.anInt.sorted(false);
 
 				try {
 					comp.compare(null, null);
@@ -1512,6 +1582,8 @@ public class BasicTest extends StructrTest {
 				setPropertyTx(a, TestOne.anInt, 2);
 				setPropertyTx(b, TestOne.anInt, 1);
 				assertEquals(1, comp.compare(a, b));
+
+				tx.success();
 			}
 
 		} catch (FrameworkException ex) {
@@ -1531,7 +1603,7 @@ public class BasicTest extends StructrTest {
 			TestOne a = createTestNode(TestOne.class);
 			TestOne b = createTestNode(TestOne.class);
 
-			GraphObjectComparator comp = new GraphObjectComparator(TestOne.anInt, GraphObjectComparator.DESCENDING);
+			Comparator comp = TestOne.anInt.sorted(true);
 
 			try {
 				comp.compare(null, null);

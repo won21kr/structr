@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -415,7 +415,7 @@ public class ImporterTest extends StructrUiTest {
 			// render page into HTML string
 			try (final Tx tx = app.tx()) {
 
-				final Importer importer = new Importer(securityContext, null, address, "testpage", true, true, false);
+				final Importer importer = new Importer(securityContext, null, address, "testpage", true, true, false, false);
 
 				importer.parse();
 
@@ -447,7 +447,7 @@ public class ImporterTest extends StructrUiTest {
 			// render page into HTML string
 			try (final Tx tx = app.tx()) {
 
-				final Importer importer = new Importer(securityContext, code, address, "widget", true, true, false);
+				final Importer importer = new Importer(securityContext, code, address, "widget", true, true, false, false);
 
 				importer.parse(true);
 

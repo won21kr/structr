@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -86,7 +86,10 @@ public class AppendWidgetCommand extends AbstractCommand {
 				try {
 					Widget.expandWidget(getWebSocket().getSecurityContext(), page, parentDOMNode, baseUrl, webSocketData.getNodeData(), processDeploymentInfo);
 
-				} catch (FrameworkException fex) {
+					// send success
+					getWebSocket().send(webSocketData, true);
+
+				} catch (Throwable fex) {
 
 					logger.warn(fex.toString());
 

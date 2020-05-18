@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -29,6 +29,7 @@ import org.structr.common.error.FrameworkException;
 import org.structr.core.app.StructrApp;
 import org.structr.core.graph.Tx;
 import org.structr.schema.action.ActionContext;
+import org.structr.schema.action.Function;
 
 /**
  *
@@ -74,23 +75,20 @@ public class BatchFunctionCall implements IdFunctionCall {
 
 					try (final Tx tx = StructrApp.getInstance(actionContext.getSecurityContext()).tx()) {
 
-						final Object result = mainCall.exec(cx, scope);
+						final Object result = Scripting.evaluateJavascript(actionContext, null, new Snippet(mainCall));
 
-						if (!Boolean.TRUE.equals(result)) {
-
-							runAgain = false;
-						}
+						runAgain = (Boolean.TRUE.equals(result));
 
 						tx.success();
 
 					} catch (FrameworkException fex) {
 
 						hasError = true;
+						runAgain = false;
 
 						if (errorHandler == null) {
 
-							logger.warn("Error in batch function: {}", fex.getMessage());
-							fex.printStackTrace();
+							Function.logException(logger, fex, "Error in batch function: {}", new Object[] { fex.getMessage() });
 						}
 					}
 
@@ -98,13 +96,15 @@ public class BatchFunctionCall implements IdFunctionCall {
 
 						try (final Tx tx = StructrApp.getInstance(actionContext.getSecurityContext()).tx()) {
 
-							errorHandler.exec(cx, scope);
+							final Object result = Scripting.evaluateJavascript(actionContext, null, new Snippet(errorHandler));
+
+							runAgain = (Boolean.TRUE.equals(result));
 
 							tx.success();
 
 						} catch (FrameworkException fex) {
-							logger.warn("Error in batch error handler: {}", fex.getMessage());
-							fex.printStackTrace();
+
+							Function.logException(logger, fex, "Error in batch error handler: {}", new Object[] { fex.getMessage() });
 						}
 					}
 				}

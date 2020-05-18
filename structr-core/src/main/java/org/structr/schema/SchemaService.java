@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with Structr.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package org.structr.schema;
 
 import graphql.Scalars;
@@ -76,7 +75,8 @@ import org.structr.schema.compiler.RemoveDuplicateClasses;
 import org.structr.schema.compiler.RemoveExportedMethodsWithoutSecurityContext;
 import org.structr.schema.compiler.RemoveMethodsWithUnusedSignature;
 import org.structr.schema.export.StructrSchema;
-import org.structr.schema.json.JsonSchema;
+import org.structr.api.schema.JsonSchema;
+import org.structr.api.service.ServiceResult;
 
 /**
  * Structr Schema Service for dynamic class support at runtime.
@@ -109,7 +109,7 @@ public class SchemaService implements Service {
 	}
 
 	@Override
-	public boolean initialize(final StructrServices services) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+	public ServiceResult initialize(final StructrServices services, String serviceName) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
 		return reloadSchema(new ErrorBuffer(), null);
 	}
 
@@ -121,7 +121,7 @@ public class SchemaService implements Service {
 		return graphQLSchema;
 	}
 
-	public static boolean reloadSchema(final ErrorBuffer errorBuffer, final String initiatedBySessionId) {
+	public static ServiceResult reloadSchema(final ErrorBuffer errorBuffer, final String initiatedBySessionId) {
 
 		final ConfigurationProvider config = StructrApp.getConfiguration();
 		final App app                      = StructrApp.getInstance();
@@ -271,7 +271,7 @@ public class SchemaService implements Service {
 											logger.error("{}", token.toString());
 										}
 
-										return false;
+										return new ServiceResult(false);
 
 									} else {
 
@@ -390,8 +390,6 @@ public class SchemaService implements Service {
 
 					FlushCachesCommand.flushAll();
 
-					t.printStackTrace();
-
 					logger.error("Unable to compile dynamic schema: {}", t.getMessage());
 					success = false;
 				}
@@ -411,7 +409,7 @@ public class SchemaService implements Service {
 			}
 		}
 
-		return success;
+		return new ServiceResult(success);
 	}
 
 	@Override
@@ -441,15 +439,7 @@ public class SchemaService implements Service {
 	}
 
 	public static void ensureBuiltinTypesExist(final App app) throws FrameworkException {
-
-		try {
-
-			StructrSchema.extendDatabaseSchema(app, dynamicSchema);
-
-		} catch (Exception ex) {
-
-			ex.printStackTrace();
-		}
+		StructrSchema.extendDatabaseSchema(app, dynamicSchema);
 	}
 
 	@Override
@@ -509,6 +499,12 @@ public class SchemaService implements Service {
 
 	private static void updateIndexConfiguration(final Map<String, Map<String, PropertyKey>> removedClasses) {
 
+		if (Services.isTesting() && !Services.updateIndexConfiguration()) {
+
+			logger.info("Skipping index creation in test mode.");
+			return;
+		}
+
 		final Thread indexUpdater = new Thread(new Runnable() {
 
 			@Override
@@ -534,7 +530,7 @@ public class SchemaService implements Service {
 								Map<String, Boolean> typeConfig = schemaIndexConfig.get(typeName);
 
 								if (typeConfig == null) {
-									
+
 									typeConfig = new LinkedHashMap<>();
 									schemaIndexConfig.put(typeName, typeConfig);
 								}
@@ -544,8 +540,8 @@ public class SchemaService implements Service {
 									boolean createIndex        = key.isIndexed() || key.isIndexedWhenEmpty();
 									final Class declaringClass = key.getDeclaringClass();
 
-									createIndex &= declaringClass == null || whitelist.contains(type) || type.equals(declaringClass);
-									createIndex &= !NonIndexed.class.isAssignableFrom(type);
+									createIndex &= (declaringClass == null || whitelist.contains(type) || type.equals(declaringClass));
+									createIndex &= (!NonIndexed.class.isAssignableFrom(type));
 
 									typeConfig.put(key.dbName(), createIndex);
 								}
@@ -569,7 +565,7 @@ public class SchemaService implements Service {
 							}
 						}
 
-						graphDb.updateIndexConfiguration(schemaIndexConfig, removedClassesConfig);
+						graphDb.updateIndexConfiguration(schemaIndexConfig, removedClassesConfig, Services.isTesting());
 
 					} finally {
 

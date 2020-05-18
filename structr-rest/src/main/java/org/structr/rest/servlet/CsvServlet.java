@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -43,19 +43,20 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.structr.api.RetryException;
+import org.structr.api.search.SortOrder;
 import org.structr.api.util.ResultStream;
 import org.structr.common.SecurityContext;
 import org.structr.common.error.FrameworkException;
 import org.structr.core.GraphObject;
 import org.structr.core.JsonInput;
 import org.structr.core.Services;
-import org.structr.core.Value;
 import org.structr.core.app.App;
 import org.structr.core.app.StructrApp;
 import org.structr.core.auth.Authenticator;
 import org.structr.core.graph.NodeFactory;
 import org.structr.core.graph.TransactionCommand;
 import org.structr.core.graph.Tx;
+import org.structr.core.graph.search.DefaultSortOrder;
 import org.structr.core.property.DateProperty;
 import org.structr.core.property.PropertyKey;
 import org.structr.rest.RestMethodResult;
@@ -99,12 +100,13 @@ public class CsvServlet extends AbstractDataServlet implements HttpServiceServle
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws UnsupportedEncodingException {
 
 		Authenticator authenticator = null;
-		ResultStream result = null;
-		Resource resource = null;
+		Resource resource           = null;
 
 		setCustomResponseHeaders(response);
 
 		try {
+
+			assertInitialized();
 
 			// isolate request authentication in a transaction
 			try (final Tx tx = StructrApp.getInstance().tx()) {
@@ -120,9 +122,6 @@ public class CsvServlet extends AbstractDataServlet implements HttpServiceServle
 
 			// set default value for property view
 			propertyView.set(securityContext, defaultPropertyView);
-
-			// evaluate constraints and measure query time
-			double queryTimeStart = System.nanoTime();
 
 			// isolate resource authentication
 			try (final Tx tx = app.tx()) {
@@ -141,23 +140,14 @@ public class CsvServlet extends AbstractDataServlet implements HttpServiceServle
 				authenticator.checkResourceAccess(securityContext, request, resourceSignature, propertyView.get(securityContext));
 
 				// add sorting & paging
-				String pageSizeParameter = request.getParameter(JsonRestServlet.REQUEST_PARAMETER_PAGE_SIZE);
-				String pageParameter = request.getParameter(JsonRestServlet.REQUEST_PARAMETER_PAGE_NUMBER);
-				String sortOrder = request.getParameter(JsonRestServlet.REQUEST_PARAMETER_SORT_ORDER);
-				String sortKeyName = request.getParameter(JsonRestServlet.REQUEST_PARAMETER_SORT_KEY);
-				boolean sortDescending = (sortOrder != null && "desc".equals(sortOrder.toLowerCase()));
-				int pageSize = Services.parseInt(pageSizeParameter, NodeFactory.DEFAULT_PAGE_SIZE);
-				int page = Services.parseInt(pageParameter, NodeFactory.DEFAULT_PAGE);
-				PropertyKey sortKey = null;
-
-				// set sort key
-				if (sortKeyName != null) {
-
-					Class<? extends GraphObject> type = resource.getEntityClass();
-
-					sortKey = StructrApp.getConfiguration().getPropertyKeyForDatabaseName(type, sortKeyName, false);
-
-				}
+				final String pageSizeParameter          = request.getParameter(JsonRestServlet.REQUEST_PARAMETER_PAGE_SIZE);
+				final String pageParameter              = request.getParameter(JsonRestServlet.REQUEST_PARAMETER_PAGE_NUMBER);
+				final String[] sortOrders               = request.getParameterValues(JsonRestServlet.REQUEST_PARAMETER_SORT_ORDER);
+				final String[] sortKeyNames             = request.getParameterValues(JsonRestServlet.REQUEST_PARAMETER_SORT_KEY);
+				final int pageSize                      = Services.parseInt(pageSizeParameter, NodeFactory.DEFAULT_PAGE_SIZE);
+				final int page                          = Services.parseInt(pageParameter, NodeFactory.DEFAULT_PAGE);
+				final Class<? extends GraphObject> type = resource.getEntityClassOrDefault();
+				final SortOrder sortOrder               = new DefaultSortOrder(type, sortKeyNames, sortOrders);
 
 				// Should line breaks be removed?
 				removeLineBreaks = StringUtils.equals(request.getParameter(REMOVE_LINE_BREAK_PARAM), "1");
@@ -166,56 +156,39 @@ public class CsvServlet extends AbstractDataServlet implements HttpServiceServle
 				writeBom = StringUtils.equals(request.getParameter(WRITE_BOM), "1");
 
 				// do action
-				result = resource.doGet(sortKey, sortDescending, pageSize, page);
-				if (result != null) {
+				try (final ResultStream result = resource.doGet(sortOrder, pageSize, page)) {
 
-					/*
-					result.setIsCollection(resource.isCollectionResource());
-					result.setIsPrimitiveArray(resource.isPrimitiveArray());
+					if (result != null) {
 
-					PagingHelper.addPagingParameter(result, pageSize, page);
+						// allow resource to modify result set
+						resource.postProcessResultSet(result);
 
-					// timing..
-					final double queryTimeEnd = System.nanoTime();
+						final Writer writer = response.getWriter();
 
-					// store property view that will be used to render the results
-					result.setPropertyView(propertyView.get(securityContext));
-					*/
+						if (writeBom) {
+							writeUtf8Bom(writer);
+						}
 
-					// allow resource to modify result set
-					resource.postProcessResultSet(result);
+						// gson.toJson(result, writer);
+						writeCsv(result, writer, propertyView.get(securityContext));
+						response.setStatus(HttpServletResponse.SC_OK);
+						writer.flush();
+						writer.close();
 
-					/*
-					DecimalFormat decimalFormat = new DecimalFormat("0.000000000", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+					} else {
 
-					result.setQueryTime(decimalFormat.format((queryTimeEnd - queryTimeStart) / 1000000000.0));
-					*/
+						logger.warn("Result was null!");
 
-					Writer writer = response.getWriter();
+						int code = HttpServletResponse.SC_NO_CONTENT;
 
-					if (writeBom) {
-						writeUtf8Bom(writer);
+						response.setStatus(code);
+
+						Writer writer = response.getWriter();
+
+						writer.flush();
+						writer.close();
+
 					}
-
-					// gson.toJson(result, writer);
-					writeCsv(result, writer, propertyView.get(securityContext));
-					response.setStatus(HttpServletResponse.SC_OK);
-					writer.flush();
-					writer.close();
-
-				} else {
-
-					logger.warn("Result was null!");
-
-					int code = HttpServletResponse.SC_NO_CONTENT;
-
-					response.setStatus(code);
-
-					Writer writer = response.getWriter();
-
-					writer.flush();
-					writer.close();
-
 				}
 
 				tx.success();
@@ -273,6 +246,8 @@ public class CsvServlet extends AbstractDataServlet implements HttpServiceServle
 
 		try {
 
+			assertInitialized();
+
 			// first thing to do!
 			request.setCharacterEncoding("UTF-8");
 			response.setCharacterEncoding("UTF-8");
@@ -303,8 +278,7 @@ public class CsvServlet extends AbstractDataServlet implements HttpServiceServle
 				// do not send websocket notifications for created objects
 				securityContext.setDoTransactionNotifications(false);
 				securityContext.disableModificationOfAccessTime();
-				securityContext.ignoreResultCount(true);
-				securityContext.disableEnsureCardinality();
+				securityContext.disablePreventDuplicateRelationships();
 
 				final String username = securityContext.getUser(false).getName();
 				final long startTime = System.currentTimeMillis();
@@ -657,9 +631,7 @@ public class CsvServlet extends AbstractDataServlet implements HttpServiceServle
 			// flush each line
 			out.flush();
 		}
-
 	}
-
 
 	private Map<String, Object> convertPropertySetToMap(JsonInput propertySet) {
 
@@ -669,33 +641,4 @@ public class CsvServlet extends AbstractDataServlet implements HttpServiceServle
 
 		return new LinkedHashMap<>();
 	}
-
-	// <editor-fold defaultstate="collapsed" desc="nested classes">
-	private class ThreadLocalPropertyView extends ThreadLocal<String> implements Value<String> {
-
-		@Override
-		protected String initialValue() {
-
-			return defaultPropertyView;
-
-		}
-
-		//~--- get methods --------------------------------------------
-		@Override
-		public String get(SecurityContext securityContext) {
-
-			return get();
-
-		}
-
-		//~--- set methods --------------------------------------------
-		@Override
-		public void set(SecurityContext securityContext, String value) {
-
-			set(value);
-
-		}
-
-	}
-
 }

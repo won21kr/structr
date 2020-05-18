@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -29,6 +29,7 @@ import org.structr.api.graph.Node;
 import org.structr.api.graph.Relationship;
 import org.structr.api.index.Index;
 import org.structr.api.service.Command;
+import org.structr.api.service.ServiceResult;
 import org.structr.api.service.SingletonService;
 import org.structr.api.service.StructrServices;
 import org.structr.api.util.CountResult;
@@ -42,13 +43,13 @@ import org.structr.core.property.PropertyKey;
  */
 public class NodeService implements SingletonService {
 
-	private static final Logger logger   = LoggerFactory.getLogger(NodeService.class.getName());
-	private DatabaseService databaseService      = null;
-	private Index<Node> nodeIndex        = null;
-	private Index<Relationship> relIndex = null;
-	private String filesPath             = null;
-	private boolean isInitialized        = false;
-	private CountResult initialCount     = null;
+	private static final Logger logger      = LoggerFactory.getLogger(NodeService.class.getName());
+	private DatabaseService databaseService = null;
+	private Index<Node> nodeIndex           = null;
+	private Index<Relationship> relIndex    = null;
+	private String filesPath                = null;
+	private boolean isInitialized           = false;
+	private CountResult initialCount        = null;
 
 	@Override
 	public void injectArguments(Command command) {
@@ -63,13 +64,15 @@ public class NodeService implements SingletonService {
 	}
 
 	@Override
-	public boolean initialize(final StructrServices services) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+	public ServiceResult initialize(final StructrServices services, String serviceName) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
 
-		final String databaseDriver = Settings.DatabaseDriver.getValue();
+		final String databaseDriver = Settings.DatabaseDriver.getPrefixedValue(serviceName);
+		String errorMessage         = null;
+
 		databaseService = (DatabaseService)Class.forName(databaseDriver).newInstance();
 		if (databaseService != null) {
 
-			if (databaseService.initialize()) {
+			if (databaseService.initialize(serviceName)) {
 
 				filesPath = Settings.FilesPath.getValue();
 
@@ -99,10 +102,14 @@ public class NodeService implements SingletonService {
 
 					logger.warn("Error while initializing indexes: {}", t.getMessage());
 				}
+
+			} else {
+
+				errorMessage = databaseService.getErrorMessage();
 			}
 		}
 
-		return isInitialized;
+		return new ServiceResult(errorMessage, isInitialized);
 	}
 
 	@Override
@@ -119,6 +126,8 @@ public class NodeService implements SingletonService {
 		if (!Services.isTesting()) {
 			checkCacheSizes();
 		}
+
+		createAdminUser();
 	}
 
 	@Override
@@ -230,7 +239,7 @@ public class NodeService implements SingletonService {
 						tx.success();
 
 					} catch (Throwable t) {
-						logger.warn("Unable to count number of nodes and relationships: {}", t.getMessage());
+						logger.warn("Unable to create initial user: {}", t.getMessage());
 					}
 				}
 			}
@@ -241,22 +250,12 @@ public class NodeService implements SingletonService {
 	private void checkCacheSizes() {
 
 		final CountResult counts = getInitialCounts();
-		final long nodeCacheSize = Settings.NodeCacheSize.getValue();
-		final long relCacheSize  = Settings.RelationshipCacheSize.getValue();
 		final long nodeCount     = counts.getNodeCount();
 		final long relCount      = counts.getRelationshipCount();
 
 		logger.info("Database contains {} nodes, {} relationships.", nodeCount, relCount);
-
-		if (nodeCacheSize < nodeCount) {
-			logger.warn("Insufficient node cache size detected, please set database.cache.node.size to at least {} for best performance.", nodeCount);
-		}
-
-		if (relCacheSize < relCount) {
-			logger.warn("Insufficient relationship cache size detected, please set database.cache.relationship.size to at least {} for best performance.", relCount);
-		}
-
 	}
+
 	// ----- interface Feature -----
 	@Override
 	public String getModuleName() {

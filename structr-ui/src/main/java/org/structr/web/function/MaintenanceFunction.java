@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2019 Structr GmbH
+ * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.structr.api.service.Command;
 import org.structr.common.SecurityContext;
 import org.structr.common.error.FrameworkException;
+import org.structr.core.GraphObjectMap;
 import org.structr.core.app.App;
 import org.structr.core.app.StructrApp;
 import org.structr.core.graph.FlushCachesCommand;
@@ -38,8 +39,8 @@ public class MaintenanceFunction extends UiAdvancedFunction {
 
 	private static final Logger logger = LoggerFactory.getLogger(MaintenanceFunction.class);
 
-	public static final String ERROR_MESSAGE_MAINTENANCE    = "Usage: ${maintenance(command, params)}. Example: ${maintenance('rebuildIndex'))')}";
-	public static final String ERROR_MESSAGE_MAINTENANCE_JS = "Usage: ${{Structr.maintenance(command, params)}}. Example: ${{Structr.maintenance('rebuildIndex', {})}}";
+	public static final String ERROR_MESSAGE_MAINTENANCE    = "Usage: ${maintenance(command [, key, value [, ... ]])}. Example: ${maintenance('rebuildIndex', 'mode', 'nodesOnly'))')}";
+	public static final String ERROR_MESSAGE_MAINTENANCE_JS = "Usage: ${{Structr.maintenance(command [, key, value [, ... ]])}}. Example: ${{Structr.maintenance('rebuildIndex', { mode: 'nodesOnly' })}}";
 
 	@Override
 	public String getName() {
@@ -47,7 +48,12 @@ public class MaintenanceFunction extends UiAdvancedFunction {
 	}
 
 	@Override
-	public Object apply(final ActionContext ctx, final Object caller, final Object[] sources) {
+	public String getSignature() {
+		return "command [, key, value [, ... ]]";
+	}
+
+	@Override
+	public Object apply(final ActionContext ctx, final Object caller, final Object[] sources) throws FrameworkException {
 
 		try {
 			assertArrayHasMinLengthAndAllElementsNotNull(sources, 1);
@@ -56,9 +62,30 @@ public class MaintenanceFunction extends UiAdvancedFunction {
 			final Map<String, Object> params      = new LinkedHashMap<>();
 			final String commandName              = (String)sources[0];
 
-			if (sources.length > 1 && sources[1] instanceof Map) {
+			if (sources.length > 1) {
 
-				params.putAll((Map)sources[1]);
+				if (sources[1] instanceof Map) {
+
+					params.putAll((Map)sources[1]);
+
+				} else if (sources[1] instanceof GraphObjectMap) {
+
+					params.putAll(((GraphObjectMap)sources[1]).toMap());
+
+				} else {
+
+					final int parameter_count = sources.length;
+
+					if (parameter_count % 2 == 0) {
+
+						throw new FrameworkException(400, "Invalid number of parameters: " + parameter_count + ". Should be uneven: " + usage(ctx.isJavaScriptContext()));
+					}
+
+					for (int c = 1; c < parameter_count; c += 2) {
+
+						params.put(sources[c].toString(), sources[c + 1]);
+					}
+				}
 			}
 
 			if (securityContext.isSuperUser()) {
