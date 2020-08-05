@@ -122,6 +122,8 @@ public class AccessControlTest extends StructrTest {
 
 			SecurityContext publicContext = SecurityContext.getInstance(null, AccessMode.Frontend);
 
+			Settings.CypherDebugLogging.setValue(true);
+
 			try (final Tx tx = app.tx()) {
 
 				List<GraphObject> result = StructrApp.getInstance(publicContext).nodeQuery(type).getAsList();
@@ -130,11 +132,15 @@ public class AccessControlTest extends StructrTest {
 				assertEquals(t1.getUuid(), result.get(0).getUuid());
 			}
 
+
 		} catch (FrameworkException ex) {
 
 			logger.warn("", ex);
 			fail("Unexpected exception");
 
+		} finally {
+
+			Settings.CypherDebugLogging.setValue(false);
 		}
 
 	}

@@ -409,15 +409,18 @@ class NodeWrapper extends EntityWrapper<org.neo4j.driver.v1.types.Node> implemen
 				final Value owns = record.get("owns");
 				if (!owns.isNull() && !owns.isEmpty()) {
 
-					final List list = owns.asList();
-					if (!list.isEmpty()) {
+					final List collection = owns.asList();
+					if (!collection.isEmpty()) {
 
-						for (final org.neo4j.driver.v1.types.Relationship rel : (List<org.neo4j.driver.v1.types.Relationship>)list) {
+						for (final List list : (List<List>)collection) {
 
-							final RelationshipRelationshipMapper mapper      = new RelationshipRelationshipMapper(db);
-							final RelationshipWrapper ownsOrSecurityInstance = (RelationshipWrapper)mapper.apply(rel);
+							for (final org.neo4j.driver.v1.types.Relationship rel : (List<org.neo4j.driver.v1.types.Relationship>)list) {
 
-							wrapper.addToCache(ownsOrSecurityInstance);
+								final RelationshipRelationshipMapper mapper      = new RelationshipRelationshipMapper(db);
+								final RelationshipWrapper ownsOrSecurityInstance = (RelationshipWrapper)mapper.apply(rel);
+
+								wrapper.addToCache(ownsOrSecurityInstance);
+							}
 						}
 					}
 

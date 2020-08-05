@@ -146,7 +146,6 @@ public class IterableQueueingRecordConsumer implements Iterable<Record>, Iterato
 
 		// make the consuming thread wait for results util elements have been
 		// added OR the producer has no more results (finished == true)
-		final long yieldStart = System.currentTimeMillis();
 
 		while (!added.get() || (!finished.get() && queue.isEmpty())) {
 
@@ -174,20 +173,6 @@ public class IterableQueueingRecordConsumer implements Iterable<Record>, Iterato
 
 			// wait for data (or exception)
 			try { Thread.yield(); } catch (Throwable t) {}
-
-			if (System.currentTimeMillis() > yieldStart + 60_000) {
-
-				logger.warn("#######################################################################################################");
-				logger.warn("IterableQueueingRecordConsumer waited for 1 minute, aborting");
-				logger.warn("statement: {}", query.getStatement(true));
-				logger.warn("throwable: {}", throwable);
-				logger.warn("finished:  {}", finished.get());
-				logger.warn("added:     {}", added.get());
-				logger.warn("queue:     {}", queue);
-				logger.warn("#######################################################################################################");
-
-				return false;
-			}
 		}
 
 		return !queue.isEmpty();

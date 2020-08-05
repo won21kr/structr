@@ -505,7 +505,7 @@ public class AdvancedCypherQuery implements CypherQuery {
 
 			} else {
 
-				buf.append(" WITH owns, n, ");
+				buf.append(" WITH path, n, ");
 				buf.append(StringUtils.join(with, ", "));
 				buf.append(" MATCH (n)");
 				buf.append(part.getRelationshipPattern());
