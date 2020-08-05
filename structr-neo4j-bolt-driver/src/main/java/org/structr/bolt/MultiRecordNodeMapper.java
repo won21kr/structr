@@ -19,31 +19,21 @@
 package org.structr.bolt;
 
 import java.util.function.Function;
-import org.neo4j.driver.v1.Record;
-import org.neo4j.driver.v1.exceptions.value.Uncoercible;
-import org.neo4j.driver.v1.types.Node;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.structr.api.graph.Node;
 
 /**
  *
  */
-class RecordNodeMapper implements Function<Record, Node> {
+class MultiRecordNodeMapper implements Function<org.neo4j.driver.v1.Record, Node> {
 
-	private static final Logger logger = LoggerFactory.getLogger(RecordNodeMapper.class);
+	private BoltDatabaseService db = null;
+
+	public MultiRecordNodeMapper(final BoltDatabaseService db) {
+		this.db = db;
+	}
 
 	@Override
-	public Node apply(final Record record) {
-
-		try {
-
-			return record.get("n").asNode();
-
-		} catch (Uncoercible ex) {
-
-			logger.warn("Unable to map Neo4j Record {} to Structr Node: {}", record.asMap(), ex.getMessage());
-		}
-
-		return null;
+	public Node apply(final org.neo4j.driver.v1.Record record) {
+		return NodeWrapper.newInstance(db, record);
 	}
 }

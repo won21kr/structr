@@ -22,6 +22,7 @@ import java.util.List;
 import org.testng.annotations.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.structr.api.config.Settings;
 import org.structr.api.graph.PropagationDirection;
 import org.structr.api.graph.PropagationMode;
 import org.structr.common.AccessMode;
@@ -126,8 +127,12 @@ public class PermissionResolutionTest extends StructrTest {
 		final App userApp = StructrApp.getInstance(SecurityContext.getInstance(user1, AccessMode.Backend));
 		try (final Tx tx = userApp.tx()) {
 
+			Settings.CypherDebugLogging.setValue(true);
+
 			assertNotNull("User1 should be able to find instance of type Type1", userApp.nodeQuery(type1).getFirst());
 			assertNull("User1 should NOT be able to find instance of type Type2", userApp.nodeQuery(type2).getFirst());
+
+			Settings.CypherDebugLogging.setValue(false);
 
 			tx.success();
 

@@ -20,12 +20,12 @@ package org.structr.bolt;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.neo4j.driver.v1.Value;
 import org.structr.api.NotFoundException;
 import org.structr.api.config.Settings;
 import org.structr.api.graph.Direction;
@@ -41,8 +41,7 @@ import org.structr.api.util.Iterables;
  */
 class NodeWrapper extends EntityWrapper<org.neo4j.driver.v1.types.Node> implements Node {
 
-	private static final Logger logger                                           = LoggerFactory.getLogger(NodeWrapper.class);
-	protected static FixedSizeCache<Long, NodeWrapper> nodeCache                 = null;
+	protected static FixedSizeCache<Long, NodeWrapper> nodeCache = null;
 
 	private final Map<String, Map<String, RelationshipResult>> relationshipCache = new HashMap<>();
 	private boolean dontUseCache                                                 = false;
@@ -386,6 +385,46 @@ class NodeWrapper extends EntityWrapper<org.neo4j.driver.v1.types.Node> implemen
 
 				wrapper = new NodeWrapper(db, node);
 				nodeCache.put(node.id(), wrapper);
+			}
+
+			return wrapper;
+		}
+	}
+
+	public static NodeWrapper newInstance(final BoltDatabaseService db, final org.neo4j.driver.v1.Record record) {
+
+		synchronized (nodeCache) {
+
+			// node is always returned in "n"
+			final org.neo4j.driver.v1.types.Node node = record.get("n").asNode();
+
+			NodeWrapper wrapper = nodeCache.get(node.id());
+			if (wrapper == null) { // || wrapper.stale) {
+
+				wrapper = new NodeWrapper(db, node);
+				nodeCache.put(node.id(), wrapper);
+			}
+
+			try {
+				final Value owns = record.get("owns");
+				if (!owns.isNull() && !owns.isEmpty()) {
+
+					final List list = owns.asList();
+					if (!list.isEmpty()) {
+
+						for (final org.neo4j.driver.v1.types.Relationship rel : (List<org.neo4j.driver.v1.types.Relationship>)list) {
+
+							final RelationshipRelationshipMapper mapper      = new RelationshipRelationshipMapper(db);
+							final RelationshipWrapper ownsOrSecurityInstance = (RelationshipWrapper)mapper.apply(rel);
+
+							wrapper.addToCache(ownsOrSecurityInstance);
+						}
+					}
+
+				}
+
+			} catch (Throwable t) {
+				t.printStackTrace();
 			}
 
 			return wrapper;

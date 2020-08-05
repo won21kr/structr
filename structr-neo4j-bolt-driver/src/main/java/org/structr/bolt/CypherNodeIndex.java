@@ -42,8 +42,8 @@ class CypherNodeIndex extends AbstractCypherIndex<Node> {
 
 			buf.append("OPTIONAL ");
 		}
-	
-		buf.append("MATCH (n");
+
+		buf.append("MATCH ()-[owns:OWNS|SECURITY*0..1]->(n");
 
 		// Only add :NodeInterface label when query has predicates, single label queries are much faster.
 		if (hasPredicates) {
@@ -74,7 +74,7 @@ class CypherNodeIndex extends AbstractCypherIndex<Node> {
 
 		final StringBuilder buf = new StringBuilder();
 
-		buf.append(" RETURN DISTINCT n");
+		buf.append(" RETURN DISTINCT owns, n");
 
 		final SortOrder sortOrder = query.getSortOrder();
 		if (sortOrder != null) {
@@ -110,6 +110,6 @@ class CypherNodeIndex extends AbstractCypherIndex<Node> {
 		}
 
 		// return mapped result
-		return Iterables.map(new NodeNodeMapper(db), Iterables.map(new RecordNodeMapper(), consumer));
+		return Iterables.map(new MultiRecordNodeMapper(db), consumer);
 	}
 }
