@@ -43,8 +43,6 @@ var _BPMN = {
 	bpmnRecentElementsKey: 'structrBPMNRecentElements_' + port,
 	init: function () {
 
-		_Logger.log(_LogType.BPMN, '_BPMN.init');
-
 		Structr.makePagesMenuDroppable();
 		Structr.adaptUiToAvailableFeatures();
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
@@ -78,6 +78,11 @@ public class BPMNDataProperty extends AbstractPrimitiveProperty<Object> {
 	@Override
 	public Object setProperty(final SecurityContext securityContext, final GraphObject obj, final Object value) throws FrameworkException {
 		((AbstractNode)obj).getTemporaryStorage().put("data", value);
+		return null;
+	}
+
+	@Override
+	public Object getExampleValue(String type, String viewName) {
 		return null;
 	}
 }

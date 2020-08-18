@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
@@ -45,6 +45,12 @@ public class BPMNServlet extends AbstractDataServlet implements HttpServiceServl
 	}
 
 	@Override
+	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
+
+		response.setStatus(HttpServletResponse.SC_OK);
+	}
+
+	@Override
 	protected void doPost(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 
 		final BPMNImporter importer = new BPMNImporter();
@@ -74,7 +80,7 @@ public class BPMNServlet extends AbstractDataServlet implements HttpServiceServl
 						importer.setChangedOnly(Boolean.valueOf(buf.toString()));
 				}
 
-				if ("application/octet-stream".equals(item.getContentType()) && name.endsWith(".bpmn")) {
+				if ("text/xml".equals(item.getContentType()) && name.endsWith(".bpmn")) {
 
 					importer.setXml(buf.toString());
 				}

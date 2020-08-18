@@ -333,7 +333,6 @@ var Command = {
 			}
 		};
 		if (recursive) obj.data.recursive = recursive;
-		_Logger.log(_LogType.WS[obj.command], 'deleteNodes()', obj);
 		return sendObj(obj, callback);
 	},
 	/**

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2020 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
@@ -77,6 +77,11 @@ public class BPMNInfoProperty extends AbstractReadOnlyProperty<Object> {
 
 	@Override
 	public SortType getSortType() {
+		return null;
+	}
+
+	@Override
+	public Object getExampleValue(String type, String viewName) {
 		return null;
 	}
 }
