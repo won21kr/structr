@@ -221,8 +221,8 @@ public class Settings {
 
 	// servlets
 	public static final StringMultiChoiceSetting Servlets     = new StringMultiChoiceSetting(servletsGroup, "General", "httpservice.servlets",
-		"JsonRestServlet HtmlServlet WebSocketServlet CsvServlet UploadServlet ProxyServlet GraphQLServlet DeploymentServlet LoginServlet LogoutServlet TokenServlet HealthCheckServlet HistogramServlet OpenAPIServlet",
-		Settings.getStringsAsSet("JsonRestServlet", "HtmlServlet", "WebSocketServlet", "CsvServlet", "UploadServlet", "ProxyServlet", "GraphQLServlet", "DeploymentServlet", "FlowServlet", "LoginServlet", "LogoutServlet", "TokenServlet", "EventSourceServlet", "HealthCheckServlet", "HistogramServlet", "OpenAPIServlet"),
+		"JsonRestServlet HtmlServlet WebSocketServlet CsvServlet UploadServlet ProxyServlet GraphQLServlet DeploymentServlet LoginServlet LogoutServlet TokenServlet HealthCheckServlet HistogramServlet OpenAPIServlet BPMNServlet",
+		Settings.getStringsAsSet("JsonRestServlet", "HtmlServlet", "WebSocketServlet", "CsvServlet", "UploadServlet", "ProxyServlet", "GraphQLServlet", "DeploymentServlet", "FlowServlet", "LoginServlet", "LogoutServlet", "TokenServlet", "EventSourceServlet", "HealthCheckServlet", "HistogramServlet", "OpenAPIServlet", "BPMNServlet"),
 		"Servlets that are listed in this configuration key will be available in the HttpService. Changes to this setting require a restart of the HttpService in the 'Services' tab.");
 
 	public static final Setting<Boolean> ConfigServletEnabled = new BooleanSetting(servletsGroup,  "ConfigServlet", "configservlet.enabled",             true, "Enables the config servlet (available under <code>http(s)://&lt;your-server&gt;/structr/config</code>)");
@@ -372,6 +372,18 @@ public class Settings {
 	public static final Setting<String> OpenAPIDefaultView       = new StringSetting(servletsGroup,  "hidden", "openapiservlet.defaultview",           "public");
 	public static final Setting<Integer> OpenAPIOutputDepth      = new IntegerSetting(servletsGroup, "hidden", "openapiservlet.outputdepth",           1);
 	public static final Setting<String> OpenAPIAllowOrigin       = new StringSetting(servletsGroup,  "hidden", "openapiservlet.allow.origin",          "", "Value that will be set in the Access-Control-Allow-Origin response header of the OpenAPI Servlet");
+
+	public static final Setting<String> BPMNServletPath       = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.path",                  "/structr/bpmn");
+	public static final Setting<String> BPMNServletClass      = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.class",                 "org.structr.bpmn.BPMNServlet");
+	public static final Setting<String> BPMNAuthenticator     = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.authenticator",         "org.structr.web.auth.UiAuthenticator");
+	public static final Setting<String> BPMNDefaultView       = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.defaultview",           "public");
+	public static final Setting<Integer> BPMNOutputDepth      = new IntegerSetting(servletsGroup, "BPMNServlet", "bpmnservlet.outputdepth",           3);
+	public static final Setting<String> BPMNResourceProvider  = new StringSetting(servletsGroup,  "BPMNServlet", "bpmnservlet.resourceprovider",      "org.structr.web.common.UiResourceProvider");
+	public static final Setting<Boolean> BPMNUserAutologin    = new BooleanSetting(servletsGroup, "BPMNServlet", "bpmnservlet.user.autologin",        false);
+	public static final Setting<Boolean> BPMNUserAutocreate   = new BooleanSetting(servletsGroup, "BPMNServlet", "bpmnservlet.user.autocreate",       false);
+	public static final Setting<Boolean> BPMNAllowAnonymous   = new BooleanSetting(servletsGroup, "BPMNServlet", "bpmnservlet.allowanonymousproxys", false);
+	public static final Setting<Integer> BPMNMaxFileSize      = new IntegerSetting(servletsGroup, "BPMNServlet", "bpmnservlet.maxfilesize",           1000);
+	public static final Setting<Integer> BPMNMaxRequestSize   = new IntegerSetting(servletsGroup, "BPMNServlet", "bpmnservlet.maxrequestsize",        1200);
 
 	// cron settings
 	public static final Setting<String> CronTasks                   = new StringSetting(cronGroup,  "", "CronService.tasks", "", "List with cron task configurations");

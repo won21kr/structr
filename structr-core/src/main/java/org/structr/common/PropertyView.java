@@ -31,7 +31,7 @@ public interface PropertyView {
 	 * scanning the entities upon system start.
 	 */
 	public static final String All =	 "all";
-
+	
 	/**
 	 * The "public" view, this is the default view for structr entities.
 	 */

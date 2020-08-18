@@ -48,6 +48,7 @@ import org.structr.core.GraphObject;
 import org.structr.core.app.StructrApp;
 import org.structr.core.entity.AbstractNode;
 import org.structr.core.entity.AbstractRelationship;
+import org.structr.core.entity.AbstractSchemaNode;
 import org.structr.core.entity.Principal;
 import org.structr.core.entity.SchemaMethod;
 import org.structr.core.entity.SchemaProperty;
@@ -71,7 +72,7 @@ public abstract class SearchCommand<S extends PropertyContainer, T extends Graph
 	protected static final boolean INCLUDE_DELETED_AND_HIDDEN = true;
 	protected static final boolean PUBLIC_ONLY		  = false;
 
-	private static final Set<PropertyKey> indexedWarningDisabled    = new LinkedHashSet<>(Arrays.asList(SchemaMethod.source, SchemaProperty.readFunction, SchemaProperty.writeFunction));
+	private static final Set<PropertyKey> indexedWarningDisabled    = new LinkedHashSet<>(Arrays.asList(AbstractSchemaNode.description, SchemaMethod.source, SchemaProperty.readFunction, SchemaProperty.writeFunction));
 	private static final Map<String, Set<String>> subtypeMapForType = new LinkedHashMap<>();
 	private static final Set<String> baseTypes                      = new LinkedHashSet<>();
 

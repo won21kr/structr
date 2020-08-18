@@ -466,6 +466,8 @@ public class Services implements StructrServices {
 			final List<Class> configuredServiceClasses = getCongfiguredServiceClasses();
 			final List<Class> reverseServiceClassNames = new LinkedList<>(configuredServiceClasses);
 			Collections.reverse(reverseServiceClassNames);
+			
+			logger.info("Shutdown order: {}", reverseServiceClassNames);
 
 			for (final Class serviceClass : reverseServiceClassNames) {
 				shutdownServices(serviceClass);

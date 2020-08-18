@@ -1,0 +1,283 @@
+[
+  {
+    "name": "Structr Start Event",
+    "id": "org.structr.bpmn.BPMNProcess",
+    "isDefault": true,
+    "appliesTo": [
+      "bpmn:StartEvent",
+      "bpmn:EndEvent"
+    ],
+    "properties": [
+      {
+        "type": "Hidden",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "action"
+        }
+      },
+      {
+        "type": "Hidden",
+        "value": "true",
+        "binding": {
+          "type": "camunda:property",
+          "name": "canBeExecuted"
+        }
+      }
+    ],
+    "entriesVisible": {
+      "_all": true,
+      "general": true,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "details": false,
+      "condition": false,
+      "assignee": false,
+      "candidateUsers": false,
+      "candidateGroups": false,
+      "dueDate": false,
+      "followUpDate": false,
+      "priority": false,
+      "message": false,
+      "messageRef": false,
+      "implType": false,
+      "delegate": false,
+      "initiator": false,
+      "documentation": false
+    }
+  },
+  {
+    "name": "Structr Action",
+    "id": "org.structr.bpmn.Action",
+    "isDefault": true,
+    "appliesTo": [
+      "bpmn:Activity"
+    ],
+    "properties": [
+      {
+        "label": "Action script",
+	"description": "Script code that runs when this process step is executed by the process engine. The current process and all its data objects are available under the keyword `process`, e.g. `process.myDocument`.",
+        "type": "Text",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "action"
+        }
+      },
+      {
+        "label": "Execution condition",
+        "description": "Script condition that indicates whether this process step can be run. Return `false` here to suspend the step until it is ready to run, return `true` to allow step to run. The current process and all its data objects are available under the keyword `process`, e.g. `process.myDocument`.",
+        "type": "Text",
+        "value": "true",
+        "binding": {
+          "type": "camunda:property",
+          "name": "canBeExecuted"
+        }
+      }
+    ],
+    "entriesVisible": {
+      "_all": true,
+      "general": true,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "details": false,
+      "condition": false,
+      "assignee": false,
+      "candidateUsers": false,
+      "candidateGroups": false,
+      "dueDate": false,
+      "followUpDate": false,
+      "priority": false,
+      "message": false,
+      "messageRef": false,
+      "implType": false,
+      "delegate": false,
+      "documentation": false
+    }
+  },
+  {
+    "name": "Structr Condition",
+    "id": "org.structr.bpmn.Condition",
+    "isDefault": true,
+    "appliesTo": [
+      "bpmn:ExclusiveGateway"
+    ],
+    "properties": [
+      {
+        "label": "Gateway condition",
+        "description": "Script condition that determines which outgoing connection is used. Return the name of the desired connection branch here. The current process and all its data objects are available under the `process` keyword, e.g. `process.myDocument`.",
+        "type": "Text",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "action"
+        }
+      },
+      {
+        "type": "Hidden",
+        "value": "true",
+        "binding": {
+          "type": "camunda:property",
+          "name": "canBeExecuted"
+        }
+      }
+    ],
+    "entriesVisible": {
+      "_all": true,
+      "general": true,
+      "details": false,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "documentation": false
+    }
+  },
+  {
+    "name": "Structr Connection",
+    "id": "org.structr.bpmn.SequenceFlow",
+    "isDefault": true,
+    "appliesTo": [
+      "bpmn:SequenceFlow"
+    ],
+    "properties": [
+      {
+        "label": "Condition value",
+        "type": "String",
+        "description": "The condition value that activates this connection.",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "value"
+        }
+      }
+    ],
+    "entriesVisible": {
+      "_all": true,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "documentation": false,
+      "details": false,
+      "condition": false
+    }
+  },
+  {
+    "name": "Structr Relationship",
+    "id": "org.structr.bpmn.RelatedNode",
+    "appliesTo": [
+      "bpmn:DataObjectReference"
+    ],
+    "properties": [
+      {
+        "label": "Name",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "name"
+        }
+      },
+      {
+        "label": "Target Type",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "type"
+        }
+      },
+      {
+        "label": "Relationship Type",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "relType"
+        }
+      }
+    ],
+    "entriesVisible": {
+      "_all": true,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "documentation": false
+    }
+  },
+  {
+    "name": "Structr Property",
+    "id": "org.structr.bpmn.Property",
+    "appliesTo": [
+      "bpmn:DataObjectReference"
+    ],
+    "properties": [
+      {
+        "label": "Name",
+        "type": "String",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "name"
+        }
+      },
+      {
+        "label": "Type",
+        "type": "Dropdown",
+        "value": "String",
+	"choices": [
+	  { "name": "String",  "value": "string" },
+	  { "name": "Boolean",  "value": "boolean" },
+	  { "name": "Number (integer)", "value": "long" },
+	  { "name": "Number (floating point)", "value": "number" },
+	  { "name": "Date", "value": "date" }
+	],
+        "binding": {
+          "type": "camunda:property",
+          "name": "type"
+        }
+      },
+      {
+        "label": "Required",
+        "type": "Boolean",
+        "value": "",
+        "binding": {
+          "type": "camunda:property",
+          "name": "required"
+        }
+      }
+    ],
+    "entriesVisible": {
+      "_all": false,
+      "executionListeners": false,
+      "properties": false,
+      "inputs": false,
+      "outputs": false,
+      "asyncBefore": false,
+      "asyncAfter": false,
+      "exclusive": false,
+      "documentation": false
+    }
+  }
+]

@@ -735,6 +735,7 @@ public class SchemaNode extends AbstractSchemaNode {
 		return null;
 	}
 
+	// ----- private methods -----
 	private List<SchemaNode> getInterfaceSchemaNodes(final Map<String, SchemaNode> schemaNodes) throws FrameworkException {
 
 		final List<SchemaNode> interfaces = new LinkedList<>();

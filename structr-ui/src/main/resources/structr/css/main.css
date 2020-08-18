@@ -3230,6 +3230,67 @@ input.bitmask {
 }
 
 /*
+ * BPMN
+ */
+
+#bpmn-contents {
+	height: 100%;
+	background-color: #fff;
+	display: table-cell;
+}
+
+#bpmn-contents button {
+	margin: inherit !important;
+}
+
+#bpmn-contents table {
+	width: 50%;
+	border: 1px solid #ddd;
+	table-layout: fixed;
+}
+
+#bpmn-contents table td {
+	text-align: left;
+	padding: 5px;
+	background-color: transparent;
+}
+
+#bpmn-contents table th {
+	text-align: left;
+	background-color: #e4e4e4;
+	padding: 5px;
+}
+
+#bpmn-contents table tr:nth-child(odd) {
+	background-color: #f5f5f5;
+}
+
+#bpmn-contents .text-right {
+	text-align: right;
+}
+
+#bpmn-process-step-list textarea {
+	width: 100%;
+}
+
+#bpmn-process-definition {
+	width: 100% !important;
+}
+
+#bpmn-process-definition td,
+#bpmn-process-definition th {
+	vertical-align: top;
+}
+
+#bpmn-process-definition th {
+	background-color: #f5f5f5 !important;
+}
+
+#bpmn-process-definition tr {
+	background-color: #f5f5f5;
+}
+
+/*
  * Graph
  */
 

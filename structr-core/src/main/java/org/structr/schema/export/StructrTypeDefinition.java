@@ -113,6 +113,7 @@ public abstract class StructrTypeDefinition<T extends AbstractSchemaNode> implem
 	protected boolean changelogDisabled                           = false;
 	protected StructrSchemaDefinition root                        = null;
 	protected URI baseTypeReference                               = null;
+	protected String description                                  = null;
 	protected String category                                     = null;
 	protected String name                                         = null;
 	protected T schemaNode                                        = null;
@@ -163,6 +164,18 @@ public abstract class StructrTypeDefinition<T extends AbstractSchemaNode> implem
 	@Override
 	public String getName() {
 		return name;
+	}
+
+	@Override
+	public JsonType setDescription(final String description) {
+
+		this.description = description;
+		return this;
+	}
+
+	@Override
+	public String getDescription() {
+		return description;
 	}
 
 	@Override
@@ -843,6 +856,10 @@ public abstract class StructrTypeDefinition<T extends AbstractSchemaNode> implem
 		if (!tags.isEmpty()) {
 			serializedForm.put(JsonSchema.KEY_TAGS, tags);
 		}
+		
+		if (StringUtils.isNotBlank(description)) {
+			serializedForm.put(JsonSchema.KEY_DESCRIPTION, description);
+		}
 
 		return serializedForm;
 	}
@@ -1022,6 +1039,7 @@ public abstract class StructrTypeDefinition<T extends AbstractSchemaNode> implem
 		this.visibleToPublicUsers        = schemaNode.getProperty(SchemaNode.defaultVisibleToPublic);
 		this.visibleToAuthenticatedUsers = schemaNode.getProperty(SchemaNode.defaultVisibleToAuth);
 		this.category                    = schemaNode.getProperty(SchemaNode.category);
+		this.description                 = schemaNode.getProperty(SchemaNode.description);
 		this.schemaNode                  = schemaNode;
 
 		if (this.category == null && getClass().equals(StructrNodeTypeDefinition.class)) {
@@ -1051,6 +1069,7 @@ public abstract class StructrTypeDefinition<T extends AbstractSchemaNode> implem
 		// properties that always need to be set
 		createProperties.put(SchemaNode.isInterface, isInterface);
 		createProperties.put(SchemaNode.isAbstract, isAbstract);
+		createProperties.put(SchemaNode.description, description);
 		createProperties.put(SchemaNode.category, category);
 		createProperties.put(SchemaNode.isBuiltinType, isBuiltinType || SchemaService.DynamicSchemaRootURI.equals(root.getId()));
 		createProperties.put(SchemaNode.changelogDisabled, changelogDisabled);
@@ -1219,11 +1238,9 @@ public abstract class StructrTypeDefinition<T extends AbstractSchemaNode> implem
 
 					} else {
 
-						logger.warn("Unable to resolve built-in type {} against Structr schema", implementedInterface);
+						logger.warn("Unable to resolve built-in type {} against Structr schema. Interface type must extend NodeInterface to be resolvable here!", implementedInterface);
 
 						SchemaService.blacklist(name);
-
-						StructrApp.resolveSchemaId(implementedInterface);
 					}
 				}
 			}
@@ -1518,6 +1535,12 @@ public abstract class StructrTypeDefinition<T extends AbstractSchemaNode> implem
 		if (isVisibleToAuthenticated != null && Boolean.TRUE.equals(isVisibleToAuthenticated)) {
 
 			typeDefinition.setVisibleForAuthenticatedUsers();
+		}
+		
+		final Object descriptionValue = source.get(JsonSchema.KEY_DESCRIPTION);
+		if (descriptionValue != null) {
+
+			typeDefinition.setDescription(descriptionValue.toString());
 		}
 
 		final Object categoryValue = source.get(JsonSchema.KEY_CATEGORY);

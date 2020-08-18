@@ -1,0 +1,7 @@
+<tr>
+	<th>${config.step.level}.</th>
+	<th>${config.step.description || config.step.name}</th>
+	<td><textarea class="bpmn" id="action-${config.step.id}">${config.action}</textarea></td>
+	<td><textarea class="bpmn" id="exec-${config.step.id}">${config.canBeExecuted}</textarea></td>
+	<td id="properties-${config.step.id}"></td>
+</tr>

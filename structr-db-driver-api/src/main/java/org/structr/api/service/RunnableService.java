@@ -41,5 +41,5 @@ public interface RunnableService extends Service {
 
 	@Override
 	public boolean isRunning();
-	
+
 }

@@ -437,7 +437,7 @@ public class HttpService implements RunnableService, StatsCallback {
 		for (Map.Entry<String, ServletHolder> servlet : servlets.entrySet()) {
 
 			final ServletHolder servletHolder = servlet.getValue();
-			final String path = servlet.getKey();
+			final String path                 = servlet.getKey();
 
 			servletHolder.setInitOrder(position++);
 
