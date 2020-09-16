@@ -31,7 +31,6 @@ import org.structr.schema.SchemaService;
  */
 public interface PaymentItemNode extends NodeInterface, PaymentItem {
 
-
 	static class Impl { static {
 
 		final JsonSchema schema      = SchemaService.getDynamicSchema();

@@ -47,7 +47,6 @@ import org.structr.payment.api.PaymentProvider;
 import org.structr.payment.api.PaymentState;
 import org.structr.payment.impl.paypal.PayPalErrorToken;
 import org.structr.payment.impl.paypal.PayPalPaymentProvider;
-import org.structr.payment.impl.stripe.StripePaymentProvider;
 import org.structr.payment.impl.test.TestPaymentProvider;
 import org.structr.schema.SchemaService;
 
@@ -257,9 +256,6 @@ public interface PaymentNode extends NodeInterface, Payment {
 
 			case "paypal":
 				return new PayPalPaymentProvider();
-
-			case "stripe":
-				return new StripePaymentProvider();
 
 			case "test":
 				return new TestPaymentProvider();

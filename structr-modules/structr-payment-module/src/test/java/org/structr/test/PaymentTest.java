@@ -220,6 +220,6 @@ public class PaymentTest extends StructrUiTest {
 				.when()
 				.get("/PaymentNode/" + uuid);
 		}
-
 	}
+
 }
