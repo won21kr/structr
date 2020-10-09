@@ -86,6 +86,7 @@ public class JsonRestServlet extends AbstractDataServlet {
 		commonRequestParameters.add(REQUEST_PARAMETER_SORT_KEY);
 		commonRequestParameters.add(REQUEST_PARAMETER_SORT_ORDER);
 		commonRequestParameters.add(REQUEST_PARAMTER_OUTPUT_DEPTH);
+		commonRequestParameters.add("logPermissionResolution");
 		commonRequestParameters.add("debugLoggingEnabled");
 		commonRequestParameters.add("forceResultCount");
 		commonRequestParameters.add("disableSoftLimit");

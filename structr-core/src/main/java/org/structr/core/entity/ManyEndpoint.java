@@ -25,8 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.structr.api.Predicate;
 import org.structr.api.graph.Direction;
 import org.structr.api.graph.Node;
@@ -46,8 +44,6 @@ import org.structr.core.property.PropertyMap;
  *
  */
 public class ManyEndpoint<T extends NodeInterface> extends AbstractEndpoint implements Target<Iterable<Relationship>, Iterable<T>> {
-
-	private static final Logger logger = LoggerFactory.getLogger(ManyEndpoint.class.getName());
 
 	private Relation<?, T, ?, ManyEndpoint<T>> relation = null;
 

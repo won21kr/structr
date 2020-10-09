@@ -136,9 +136,6 @@ public class SchemaRelationshipNode extends AbstractSchemaNode {
 		propertyMask
 	);
 
-	private final Set<String> dynamicViews = new LinkedHashSet<>();
-
-
 	public static void registerPropagatingRelationshipType(final Class type) {
 		propagatingRelTypes.add(type);
 	}
@@ -618,7 +615,6 @@ public class SchemaRelationshipNode extends AbstractSchemaNode {
 			final String viewName        = entry.getKey();
 
 			if (!view.isEmpty()) {
-				dynamicViews.add(viewName);
 				SchemaHelper.formatView(src, view.getSource(), _className, viewName, viewName, view);
 			}
 		}

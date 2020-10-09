@@ -108,7 +108,6 @@ import org.structr.schema.action.Function;
  */
 public abstract class AbstractNode implements NodeInterface, AccessControllable, CMISInfo, CMISItemInfo {
 
-	private static final int permissionResolutionMaxLevel                                                     = Settings.ResolutionDepth.getValue();
 	private static final Logger logger                                                                        = LoggerFactory.getLogger(AbstractNode.class.getName());
 	private static final FixedSizeCache<String, Boolean> isGrantedResultCache                                 = new FixedSizeCache<String, Boolean>("Grant result cache", 100000);
 	private static final FixedSizeCache<String, Object> relationshipTemplateInstanceCache                     = new FixedSizeCache<>("Relationship template cache", 1000);
@@ -939,14 +938,22 @@ public abstract class AbstractNode implements NodeInterface, AccessControllable,
 				if (result) {
 					return true;
 				}
-
 			}
 
-			// Check permissions from domain relationships
+			// recursively check possible parent principals
+			for (Principal parent : accessingUser.getParentsPrivileged()) {
+
+				if (isGranted(permission, parent, mask, level+1, alreadyTraversed, false, doLog, localIncomingSecurityRelationships, isCreation)) {
+					return true;
+				}
+			}
+
+			// check permissions from domain relationships
 			if (resolvePermissions) {
 
-				final Queue<BFSInfo> bfsNodes   = new LinkedList<>();
-				final BFSInfo root              = new BFSInfo(null, this);
+				final int permissionResolutionMaxLevel = Settings.ResolutionDepth.getValue(5);
+				final Queue<BFSInfo> bfsNodes          = new LinkedList<>();
+				final BFSInfo root                     = new BFSInfo(null, this);
 
 				// add initial element
 				bfsNodes.add(root);
@@ -954,29 +961,36 @@ public abstract class AbstractNode implements NodeInterface, AccessControllable,
 				do {
 
 					final BFSInfo info = bfsNodes.poll();
-					if (info != null && info.level < permissionResolutionMaxLevel) {
+					if (info != null) {
 
-						final Boolean value = info.node.getPermissionResolutionResult(accessingUser.getUuid(), permission);
-						if (value != null) {
+						if (info.level < permissionResolutionMaxLevel) {
 
-							// returning immediately
-							if (Boolean.TRUE.equals(value)) {
+							final Boolean value = info.node.getPermissionResolutionResult(accessingUser.getUuid(), permission);
+							if (value != null) {
 
-								// do backtracking
-								backtrack(info, accessingUser.getUuid(), permission, true, 0, doLog);
+								// returning immediately
+								if (Boolean.TRUE.equals(value)) {
 
-								return true;
+									// do backtracking
+									backtrack(info, accessingUser.getUuid(), permission, true, 0, doLog);
+
+									return true;
+								}
+
+							} else {
+
+								if (info.node.hasEffectivePermissions(info, accessingUser, permission, mask, level, alreadyTraversed, bfsNodes, doLog, isCreation)) {
+
+									// do backtracking
+									backtrack(info, accessingUser.getUuid(), permission, true, 0, doLog);
+
+									return true;
+								}
 							}
 
 						} else {
 
-							if (info.node.hasEffectivePermissions(info, accessingUser, permission, mask, level, alreadyTraversed, bfsNodes, doLog, isCreation)) {
-
-								// do backtracking
-								backtrack(info, accessingUser.getUuid(), permission, true, 0, doLog);
-
-								return true;
-							}
+							logger.warn("Aborting permission resolution at depth {}. You can configure this limit by changing the value of the {} configuration setting.", permissionResolutionMaxLevel, Settings.ResolutionDepth.getKey());
 						}
 					}
 
@@ -984,14 +998,6 @@ public abstract class AbstractNode implements NodeInterface, AccessControllable,
 
 				// do backtracking
 				backtrack(root, accessingUser.getUuid(), permission, false, 0, doLog);
-			}
-
-			// Last: recursively check possible parent principals
-			for (Principal parent : accessingUser.getParentsPrivileged()) {
-
-				if (isGranted(permission, parent, mask, level+1, alreadyTraversed, false, doLog, localIncomingSecurityRelationships, isCreation)) {
-					return true;
-				}
 			}
 		}
 
@@ -1040,54 +1046,62 @@ public abstract class AbstractNode implements NodeInterface, AccessControllable,
 			return false;
 		}
 
+		final int resolutionThreshold = Settings.ResolutionThreshold.getValue(100);
+
 		if (doLog) { logger.info("{}{} ({}): checking {} access on level {} for {}", StringUtils.repeat("    ", level), getUuid(), getType(), permission.name(), level, principal != null ? principal.getName() : null); }
 
 		for (final Class<Relation> propagatingType : SchemaRelationshipNode.getPropagatingRelationshipTypes()) {
 
-			// iterate over list of relationships
-			final List<Relation> list = Iterables.toList(getRelationshipsAsSuperUser(propagatingType));
-			final int count           = list.size();
+			final Relation template = getRelationshipForType(propagatingType);
 
-			if (count < 1000) {
+			// check for matching type before querying..
+			if (template.getSourceType().isAssignableFrom(entityType) || template.getTargetType().isAssignableFrom(entityType)) {
 
-				for (final Relation source : list) {
+				// iterate over list of relationships
+				final List<Relation> list = Iterables.toList(getRelationshipsAsSuperUser(propagatingType));
+				final int count           = list.size();
 
-					if (source instanceof PermissionPropagation) {
+				if (count < resolutionThreshold) {
 
-						final PermissionPropagation perm = (PermissionPropagation)source;
-						final RelationshipInterface rel  = (RelationshipInterface)source;
+					for (final Relation source : list) {
 
-						if (doLog) { logger.info("{}{}: checking {} access on level {} via {} for {}", StringUtils.repeat("    ", level), getUuid(), permission.name(), level, rel.getRelType().name(), principal != null ? principal.getName() : null); }
+						if (source instanceof PermissionPropagation) {
 
-						// check propagation direction vs. evaluation direction
-						if (propagationAllowed(this, rel, perm.getPropagationDirection(), doLog)) {
+							final PermissionPropagation perm = (PermissionPropagation)source;
+							final RelationshipInterface rel  = (RelationshipInterface)source;
 
-							applyCurrentStep(perm, mask);
+							if (doLog) { logger.info("{}{}: checking {} access on level {} via {} for {}", StringUtils.repeat("    ", level), getUuid(), permission.name(), level, rel.getRelType().name(), principal != null ? principal.getName() : null); }
 
-							if (mask.allowsPermission(permission)) {
+							// check propagation direction vs. evaluation direction
+							if (propagationAllowed(this, rel, perm.getPropagationDirection(), doLog)) {
 
-								final AbstractNode otherNode = (AbstractNode)rel.getOtherNode(this);
+								applyCurrentStep(perm, mask);
 
-								if (otherNode.isGranted(permission, principal, mask, level + 1, alreadyTraversed, false, doLog, isCreation)) {
+								if (mask.allowsPermission(permission)) {
 
-									otherNode.storePermissionResolutionResult(principal.getUuid(), permission, true);
+									final AbstractNode otherNode = (AbstractNode)rel.getOtherNode(this);
 
-									// break early
-									return true;
+									if (otherNode.isGranted(permission, principal, mask, level + 1, alreadyTraversed, false, doLog, isCreation)) {
 
-								} else {
+										otherNode.storePermissionResolutionResult(principal.getUuid(), permission, true);
 
-									// add node to BFS queue
-									bfsNodes.add(new BFSInfo(parent, otherNode));
+										// break early
+										return true;
+
+									} else {
+
+										// add node to BFS queue
+										bfsNodes.add(new BFSInfo(parent, otherNode));
+									}
 								}
 							}
 						}
 					}
+
+				} else {
+
+					logger.warn("Refusing to resolve permissions with {} because there are more than {} relationships. You can configure this limit by changing the value of the {} configuration setting.", propagatingType.getSimpleName(), resolutionThreshold, Settings.ResolutionThreshold.getKey());
 				}
-
-			} else {
-
-				logger.warn("Refusing to resolve permissions with {} because there are more than 1000 nodes.", propagatingType.getSimpleName());
 			}
 		}
 
