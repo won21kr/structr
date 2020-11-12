@@ -418,9 +418,9 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 	@Override
 	public void updateIndexConfiguration(final Map<String, Map<String, Boolean>> schemaIndexConfigSource, final Map<String, Map<String, Boolean>> removedClassesSource, final boolean createOnly) {
 
-		final ExecutorService executor              = Executors.newCachedThreadPool();
-		final Map<String, String> existingDbIndexes = new HashMap<>();
-		final int timeoutSeconds                    = 10;
+		final ExecutorService executor                           = Executors.newCachedThreadPool();
+		final Map<String, Map<String, Object>> existingDbIndexes = new HashMap<>();
+		final int timeoutSeconds                                 = 10;
 
 		try {
 
@@ -428,13 +428,17 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 				try (final Transaction tx = beginTx(timeoutSeconds)) {
 
-					for (final Map<String, Object> row : execute("CALL db.indexes() YIELD description, state, type WHERE type = 'node_label_property' RETURN {description: description, state: state}")) {
+					for (final Map<String, Object> row : execute("CALL db.indexes() YIELD name, type, state, labelsOrTypes, properties RETURN {name: name, type: type, labels: labelsOrTypes, properties: properties, state: state}")) {
 
 						for (final Object value : row.values()) {
 
-							final Map<String, String> valueMap = (Map<String, String>)value;
+							final Map<String, Object> valueMap = (Map<String, Object>)value;
+							final List<String> labels          = (List<String>)valueMap.get("labels");
+							final List<String> properties      = (List<String>)valueMap.get("properties");
+							final String indexIdentifier       = StringUtils.join(labels, ", ") + "." + StringUtils.join(properties, ", ");
 
-							existingDbIndexes.put(valueMap.get("description"), valueMap.get("state"));
+							// store index config
+							existingDbIndexes.put(indexIdentifier, valueMap);
 						}
 					}
 
@@ -459,15 +463,27 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 			for (final Map.Entry<String, Boolean> propertyIndexConfig : entry.getValue().entrySet()) {
 
-				final String indexDescriptionForLookup = "INDEX ON :" + typeName + "(" + propertyIndexConfig.getKey() + ")";
-				final String indexDescription          = "INDEX ON :" + typeName + "(`" + propertyIndexConfig.getKey() + "`)";
-				final String currentState              = existingDbIndexes.get(indexDescriptionForLookup);
-				final boolean indexAlreadyOnline       = Boolean.TRUE.equals("ONLINE".equals(currentState));
-				final boolean configuredAsIndexed      = propertyIndexConfig.getValue();
+				final String indexIdentifier        = typeName + "." + propertyIndexConfig.getKey();
+				final Map<String, Object> neoConfig = existingDbIndexes.get(indexIdentifier);
+				String indexName                    = null;
+				String currentState                 = null;
+				boolean indexAlreadyOnline          = false;
+
+				if (neoConfig != null) {
+
+					currentState       = (String)neoConfig.get("state");
+					indexAlreadyOnline = Boolean.TRUE.equals("ONLINE".equals(currentState));
+					indexName          = (String)neoConfig.get("name");
+
+				}
+				final boolean configuredAsIndexed     = propertyIndexConfig.getValue();
+				final String propertyKey              = propertyIndexConfig.getKey();
+				final boolean finalIndexAlreadyOnline = indexAlreadyOnline;
+				final String finalIndexName           = indexName;
 
 				if ("FAILED".equals(currentState)) {
 
-					logger.warn("Index is in FAILED state - dropping the index before handling it further. {}. If this error is recurring, please verify that the data in the concerned property is indexable by Neo4j", indexDescription);
+					logger.warn("Index is in FAILED state - dropping the index before handling it further. {}.{}. If this error is recurring, please verify that the data in the concerned property is indexable by Neo4j", typeName, propertyKey);
 
 					final AtomicBoolean retry = new AtomicBoolean(true);
 					final AtomicInteger retryCount = new AtomicInteger(0);
@@ -482,7 +498,7 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 								try (final Transaction tx = beginTx(timeoutSeconds)) {
 
-									consume("DROP " + indexDescription);
+									consume("DROP INDEX " + finalIndexName + " IF EXISTS");
 
 									tx.success();
 
@@ -520,27 +536,27 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 								if (configuredAsIndexed) {
 
-									if (!indexAlreadyOnline) {
+									if (!finalIndexAlreadyOnline) {
 
 										try {
 
-											consume("CREATE " + indexDescription);
+											consume("CREATE INDEX IF NOT EXISTS FOR (n:" + typeName + ") ON (n.`" + propertyKey + "`)");
 											createdIndexes.incrementAndGet();
 
 										} catch (Throwable t) {
-											logger.warn("Unable to create {}: {}", indexDescription, t.getMessage());
+											logger.warn("Unable to create index for {}.{}: {}", typeName, propertyKey, t.getMessage());
 										}
 									}
 
-								} else if (indexAlreadyOnline && !createOnly) {
+								} else if (finalIndexAlreadyOnline && !createOnly) {
 
 									try {
 
-										consume("DROP " + indexDescription);
+										consume("DROP INDEX " + finalIndexName + " IF EXISTS");
 										droppedIndexes.incrementAndGet();
 
 									} catch (Throwable t) {
-										logger.warn("Unable to drop {}: {}", indexDescription, t.getMessage());
+										logger.warn("Unable to drop index {}.{}: {}", typeName, propertyKey, t.getMessage());
 									}
 								}
 
@@ -589,10 +605,12 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 				for (final Map.Entry<String, Boolean> propertyIndexConfig : entry.getValue().entrySet()) {
 
-					final String indexDescriptionForLookup = "INDEX ON :" + typeName + "(" + propertyIndexConfig.getKey() + ")";
-					final String indexDescription          = "INDEX ON :" + typeName + "(`" + propertyIndexConfig.getKey() + "`)";
-					final boolean indexExists              = (existingDbIndexes.get(indexDescriptionForLookup) != null);
-					final boolean configuredAsIndexed      = propertyIndexConfig.getValue();
+					final String indexIdentifier        = typeName + "." + propertyIndexConfig.getKey();
+					final Map<String, Object> neoConfig = existingDbIndexes.get(indexIdentifier);
+					final boolean configuredAsIndexed   = propertyIndexConfig.getValue();
+					final String indexName              = (String)neoConfig.get("name");
+					final boolean indexExists           = (existingDbIndexes.get(indexIdentifier) != null);
+					final String propertyKey            = propertyIndexConfig.getKey();
 
 					if (indexExists && configuredAsIndexed) {
 
@@ -610,7 +628,7 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 									try (final Transaction tx = beginTx(timeoutSeconds)) {
 
 										// drop index
-										consume("DROP " + indexDescription);
+										consume("DROP INDEX " + indexName + " IF EXISTS");
 										droppedIndexesOfRemovedTypes.incrementAndGet();
 
 										tx.success();
@@ -621,7 +639,7 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 										logger.info("DROP INDEX: retry {}", retryCount.get());
 
 									} catch (Throwable t) {
-										logger.warn("Unable to drop {}: {}", indexDescription, t.getMessage());
+										logger.warn("Unable to drop {}{}: {}", typeName, propertyKey, t.getMessage());
 									}
 
 								}).get(timeoutSeconds, TimeUnit.SECONDS);
