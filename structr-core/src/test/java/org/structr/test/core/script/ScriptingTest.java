@@ -77,12 +77,9 @@ import org.structr.test.core.entity.TestSix;
 import org.structr.test.core.entity.TestThree;
 import org.structr.test.core.entity.TestTwo;
 import org.testng.Assert;
-import static org.testng.AssertJUnit.assertEquals;
-import static org.testng.AssertJUnit.assertNotNull;
-import static org.testng.AssertJUnit.assertNull;
-import static org.testng.AssertJUnit.assertTrue;
-import static org.testng.AssertJUnit.fail;
 import org.testng.annotations.Test;
+
+import static org.testng.AssertJUnit.*;
 
 
 /**
@@ -1046,7 +1043,7 @@ public class ScriptingTest extends StructrTest {
 			// disabled: java StreamTokenizer can NOT handle scientific notation
 //			assertEquals("Invalid if(equal()) result", "true",  Scripting.replaceVariables(ctx, testOne, "${equal(23.4462, 2.34462e1)}"));
 //			assertEquals("Invalid if(equal()) result", "true",  Scripting.replaceVariables(ctx, testOne, "${equal(0.00234462, 2.34462e-3)}"));
-//			assertEquals("Invalid if(equal()) result with null value", "false",  Scripting.replaceVariables(ctx, testOne, "${equal(this.alwaysNull, 2.34462e-3)}"));
+//			aFunction.logException(logger, ex, "Error in batch error handler: {}", new Object[]{ex.getMessage()});
 			assertEquals("Invalid if(equal()) result with null value", "false",  Scripting.replaceVariables(ctx, testOne, "${equal(0.00234462, this.alwaysNull)}"));
 			assertEquals("Invalid if(equal()) result with null value", "true",  Scripting.replaceVariables(ctx, testOne, "${equal(this.alwaysNull, this.alwaysNull)}"));
 
@@ -5670,6 +5667,88 @@ public class ScriptingTest extends StructrTest {
 
 	}
 
+	@Test
+	public void testCacheFunction () {
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		// test
+		try (final Tx tx = app.tx()) {
+
+
+			final Object cachedResult = ScriptTestHelper.testExternalScript(ctx, ScriptingTest.class.getResourceAsStream("/test/scripting/testCacheFunction.js"));
+			Object result = ScriptTestHelper.testExternalScript(ctx, ScriptingTest.class.getResourceAsStream("/test/scripting/testCacheFunction.js"));
+			assertEquals(cachedResult, result);
+
+			tryWithTimeout(()-> {
+				try {
+					return !ScriptTestHelper.testExternalScript(ctx, ScriptingTest.class.getResourceAsStream("/test/scripting/testCacheFunction.js")).equals(cachedResult);
+				} catch (FrameworkException ex) {
+
+					return false;
+				}
+			}, ()-> fail("Timeout reached while waiting for cached value to change after timeout"), 20000, 1000);
+
+			final Object secondCachedResult = ScriptTestHelper.testExternalScript(ctx, ScriptingTest.class.getResourceAsStream("/test/scripting/testCacheFunction.js"));
+
+			assertFalse("Cached value didn't change after timeout.", cachedResult.equals(secondCachedResult));
+			result = ScriptTestHelper.testExternalScript(ctx, ScriptingTest.class.getResourceAsStream("/test/scripting/testCacheFunction.js"));
+			assertEquals(secondCachedResult, result);
+
+			tx.success();
+
+		} catch (FrameworkException ex) {
+
+			fail("Unexpected exception");
+		}
+
+	}
+
+	@Test
+	public void testVarsKeyword () {
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		// test
+		try (final Tx tx = app.tx()) {
+
+			final Object result = ScriptTestHelper.testExternalScript(ctx, ScriptingTest.class.getResourceAsStream("/test/scripting/testVarsKeyword.js"));
+
+			assertNotNull(result);
+			assertTrue("Result is not a map", result instanceof Map);
+			for (final Map.Entry<String, Integer> entry : Set.of(Map.entry("a", 0), Map.entry("b", 1), Map.entry("c", 2))) {
+				assertEquals(entry.getValue(), ((Map) result).get(entry.getKey()));
+			}
+
+			tx.success();
+
+		} catch (FrameworkException ex) {
+
+			fail("Unexpected exception");
+		}
+
+	}
+
+	@Test
+	public void testClearKeywordFunction () {
+
+		final ActionContext ctx = new ActionContext(securityContext);
+
+		// test
+		try (final Tx tx = app.tx()) {
+
+			final Object result = ScriptTestHelper.testExternalScript(ctx, ScriptingTest.class.getResourceAsStream("/test/scripting/testClearKeywordFunction.js"));
+
+			assertEquals("", result);
+
+			tx.success();
+
+		} catch (FrameworkException ex) {
+
+			fail("Unexpected exception");
+		}
+
+	}
 
 	// ----- private methods ----
 	private void createTestType(final JsonSchema schema, final String name, final String createSource, final String saveSource, final String comment) {

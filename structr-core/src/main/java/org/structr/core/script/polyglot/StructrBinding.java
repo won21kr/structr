@@ -26,15 +26,12 @@ import org.slf4j.LoggerFactory;
 import org.structr.common.CaseHelper;
 import org.structr.common.error.FrameworkException;
 import org.structr.core.GraphObject;
+import org.structr.core.Services;
 import org.structr.core.app.App;
 import org.structr.core.app.StructrApp;
 import org.structr.core.function.Functions;
-import org.structr.core.script.polyglot.function.BatchFunction;
-import org.structr.core.script.polyglot.function.DoPrivilegedFunction;
-import org.structr.core.script.polyglot.function.IncludeJSFunction;
-import org.structr.core.script.polyglot.wrappers.FunctionWrapper;
-import org.structr.core.script.polyglot.wrappers.HttpServletRequestWrapper;
-import org.structr.core.script.polyglot.wrappers.StaticTypeWrapper;
+import org.structr.core.script.polyglot.function.*;
+import org.structr.core.script.polyglot.wrappers.*;
 import org.structr.schema.action.ActionContext;
 import org.structr.schema.action.Function;
 
@@ -75,6 +72,14 @@ public class StructrBinding implements ProxyObject {
 				return new DoPrivilegedFunction(actionContext);
 			case "request":
 				return new HttpServletRequestWrapper(actionContext, actionContext.getSecurityContext().getRequest());
+			case "cache":
+				return new CacheFunction(actionContext, entity);
+			case "vars":
+				return new PolyglotProxyMap(actionContext, actionContext.getAllVariables());
+			case "clear":
+				return new ClearFunction(actionContext);
+			case "applicationStore":
+				return new PolyglotProxyMap(actionContext, Services.getInstance().getApplicationStore());
 			default:
 				if (actionContext.getConstant(name) != null) {
 					return wrap(actionContext,actionContext.getConstant(name));
@@ -125,6 +130,8 @@ public class StructrBinding implements ProxyObject {
 		keys.add("includeJs");
 		keys.add("doPrivileged");
 		keys.add("request");
+		keys.add("cache");
+		keys.add("applicationStore");
 		return keys;
 	}
 
