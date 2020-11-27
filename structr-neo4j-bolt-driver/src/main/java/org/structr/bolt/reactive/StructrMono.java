@@ -16,19 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with Structr.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.structr.bolt;
+package org.structr.bolt.reactive;
 
-/**
- *
- */
-public class LongQuery extends AbstractNativeQuery<Boolean> {
+import org.neo4j.driver.Record;
+import org.neo4j.driver.async.ResultCursor;
 
-	public LongQuery(final String query) {
-		super(query);
-	}
+import java.util.concurrent.CompletionStage;
+import java.util.function.Consumer;
 
-	@Override
-	Boolean execute(final SessionTransaction tx) {
-		return tx.getBoolean(query, parameters);
-	}
+public interface StructrMono extends Consumer<Record>, AutoCloseable {
+
+    CompletionStage<ResultCursor> start(final ResultCursor cursor);
+
+    void initialize();
+
+    void finish();
+
+    Void exception(final Throwable throwable);
+
+    Record getRecord();
+
 }

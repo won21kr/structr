@@ -41,11 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.neo4j.driver.AuthTokens;
-import org.neo4j.driver.Driver;
-import org.neo4j.driver.GraphDatabase;
-import org.neo4j.driver.Session;
-import org.neo4j.driver.TransactionConfig;
+import org.neo4j.driver.*;
 import org.neo4j.driver.exceptions.AuthenticationException;
 import org.neo4j.driver.exceptions.ClientException;
 import org.neo4j.driver.exceptions.DatabaseException;
@@ -80,7 +76,7 @@ import org.structr.api.util.NodeWithOwnerResult;
 public class BoltDatabaseService extends AbstractDatabaseService implements GraphProperties {
 
 	private static final Logger logger                                = LoggerFactory.getLogger(BoltDatabaseService.class.getName());
-	private static final ThreadLocal<ReactiveSessionTransaction> sessions     = new ThreadLocal<>();
+	private static final ThreadLocal<SessionTransaction> sessions     = new ThreadLocal<>();
 	private final Set<String> supportedQueryLanguages                 = new LinkedHashSet<>();
 	private Properties globalGraphProperties                          = null;
 	private CypherRelationshipIndex relationshipIndex                 = null;
@@ -161,11 +157,12 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 	@Override
 	public Transaction beginTx() {
 
-		ReactiveSessionTransaction session = sessions.get();
+		SessionTransaction session = sessions.get();
 		if (session == null || session.isClosed()) {
 
 			try {
-				session = new ReactiveSessionTransaction(this, driver.rxSession());
+				//session = new ReactiveSessionTransaction(this, driver.rxSession());/*
+				session = new NonReactiveSessionTransaction(this, driver.asyncSession());//*/
 				sessions.set(session);
 
 			} catch (ServiceUnavailableException ex) {
@@ -181,11 +178,12 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 	@Override
 	public Transaction beginTx(final int timeoutInSeconds) {
 
-		ReactiveSessionTransaction session = sessions.get();
+		SessionTransaction session = sessions.get();
 		if (session == null || session.isClosed()) {
 
 			try {
-				session = new ReactiveSessionTransaction(this, driver.rxSession(), timeoutInSeconds);
+				//session = new ReactiveSessionTransaction(this, driver.rxSession(), timeoutInSeconds);/*
+				session = new NonReactiveSessionTransaction(this, driver.asyncSession(), timeoutInSeconds);//*/
 				sessions.set(session);
 
 			} catch (ServiceUnavailableException ex) {
@@ -703,13 +701,13 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 		}
 	}
 
-	public ReactiveSessionTransaction getCurrentTransaction() {
+	public SessionTransaction getCurrentTransaction() {
 		return getCurrentTransaction(true);
 	}
 
-	public ReactiveSessionTransaction getCurrentTransaction(final boolean throwNotInTransactionException) {
+	public SessionTransaction getCurrentTransaction(final boolean throwNotInTransactionException) {
 
-		final ReactiveSessionTransaction tx = sessions.get();
+		final SessionTransaction tx = sessions.get();
 		if (throwNotInTransactionException && (tx == null || tx.isClosed())) {
 
 			throw new NotInTransactionException("Not in transaction");

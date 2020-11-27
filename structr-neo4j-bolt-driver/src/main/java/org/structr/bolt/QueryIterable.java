@@ -21,6 +21,9 @@ package org.structr.bolt;
 import java.util.Iterator;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.internal.shaded.reactor.core.publisher.Flux;
+import org.structr.bolt.reactive.PaginatedQueueingFlux;
+import org.structr.bolt.reactive.QueueingFlux;
+import org.structr.bolt.reactive.StructrFlux;
 
 /**
  */
@@ -37,9 +40,14 @@ public class QueryIterable implements Iterable<Record> {
 	@Override
 	public Iterator<Record> iterator() {
 
-		final ReactiveSessionTransaction tx = db.getCurrentTransaction();
-		final Flux<Record> flux             = tx.collectRecords(query.getStatement(false), query.getParameters());
+		final SessionTransaction tx = db.getCurrentTransaction();
 
-		return flux.toIterable().iterator();
+		final StructrFlux flux = new PaginatedQueueingFlux(this.db, query);
+		flux.initialize();
+		return flux.iterator();
+
+		//final Flux<Record> flux             = tx.collectRecords(query.getStatement(false), query.getParameters());
+
+		//return flux.toIterable().iterator();
 	}
 }

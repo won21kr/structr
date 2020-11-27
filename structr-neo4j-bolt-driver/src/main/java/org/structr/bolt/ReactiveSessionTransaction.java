@@ -18,16 +18,10 @@
  */
 package org.structr.bolt;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
-import org.neo4j.driver.Record;
-import org.neo4j.driver.Result;
-import org.neo4j.driver.TransactionConfig;
-import org.neo4j.driver.Values;
+
+import org.neo4j.driver.*;
 import org.neo4j.driver.exceptions.ClientException;
 import org.neo4j.driver.exceptions.DatabaseException;
 import org.neo4j.driver.exceptions.NoSuchRecordException;
@@ -38,39 +32,23 @@ import org.neo4j.driver.internal.shaded.reactor.core.publisher.Mono;
 import org.neo4j.driver.reactive.RxResult;
 import org.neo4j.driver.reactive.RxSession;
 import org.neo4j.driver.reactive.RxTransaction;
-import org.neo4j.driver.types.Entity;
-import org.neo4j.driver.types.Node;
-import org.neo4j.driver.types.Relationship;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.structr.api.ConstraintViolationException;
-import org.structr.api.DataFormatException;
 import org.structr.api.NetworkException;
 import org.structr.api.NotFoundException;
 import org.structr.api.RetryException;
-import org.structr.api.UnknownClientException;
-import org.structr.api.UnknownDatabaseException;
 import org.structr.api.util.Iterables;
+import org.structr.bolt.reactive.StructrFlux;
+import org.structr.bolt.reactive.StructrMono;
 
 /**
  *
  */
-class ReactiveSessionTransaction implements org.structr.api.Transaction {
+class ReactiveSessionTransaction extends SessionTransaction {
 
 	private static final Logger logger                = LoggerFactory.getLogger(ReactiveSessionTransaction.class);
-	private static final AtomicLong ID_SOURCE         = new AtomicLong();
-	private final Set<EntityWrapper> accessedEntities = new HashSet<>();
-	private final Set<EntityWrapper> modifiedEntities = new HashSet<>();
-	private final Set<Long> deletedNodes              = new HashSet<>();
-	private final Set<Long> deletedRels               = new HashSet<>();
-	private final Object transactionKey               = new Object();
-	private BoltDatabaseService db                    = null;
 	private RxSession session                         = null;
 	private RxTransaction tx                          = null;
-	private long transactionId                        = 0L;
-	private boolean closed                            = false;
-	private boolean success                           = false;
-	private boolean isPing                            = false;
 
 	public ReactiveSessionTransaction(final BoltDatabaseService db, final RxSession session) {
 
@@ -91,8 +69,7 @@ class ReactiveSessionTransaction implements org.structr.api.Transaction {
 	}
 
 	@Override
-	public void failure() {
-	}
+	public void failure() {}
 
 	@Override
 	public void success() {
@@ -160,173 +137,39 @@ class ReactiveSessionTransaction implements org.structr.api.Transaction {
 		}
 	}
 
-	public boolean isClosed() {
-		return closed;
-	}
 
-	public void setClosed(final boolean closed) {
-		this.closed = closed;
-	}
 
-	public boolean getBoolean(final String statement) {
+	@Override
+	public Value firstTransactionValue(final String statement, final Map<String, Object> map, boolean eager) {
 
-		try {
+		final RxResult result = tx.run(statement, map);
+		final Value value = Mono.from(result.records()).block().get(0);
 
-			logQuery(statement);
-			return getBoolean(statement, Collections.EMPTY_MAP);
+		if(eager) {
 
-		} catch (TransientException tex) {
-			closed = true;
-			throw new RetryException(tex);
-		} catch (NoSuchRecordException nex) {
-			throw new NotFoundException(nex);
-		} catch (ServiceUnavailableException ex) {
-			throw new NetworkException(ex.getMessage(), ex);
-		} catch (DatabaseException dex) {
-			throw ReactiveSessionTransaction.translateDatabaseException(dex);
-		} catch (ClientException cex) {
-			throw ReactiveSessionTransaction.translateClientException(cex);
-		}
-	}
-
-	public boolean getBoolean(final String statement, final Map<String, Object> map) {
-
-		try {
-
-			logQuery(statement, map);
-			return Mono.from(tx.run(statement, map).records()).block().get(0).asBoolean();
-
-		} catch (TransientException tex) {
-			closed = true;
-			throw new RetryException(tex);
-		} catch (NoSuchRecordException nex) {
-			throw new NotFoundException(nex);
-		} catch (ServiceUnavailableException ex) {
-			throw new NetworkException(ex.getMessage(), ex);
-		} catch (DatabaseException dex) {
-			throw ReactiveSessionTransaction.translateDatabaseException(dex);
-		} catch (ClientException cex) {
-			throw ReactiveSessionTransaction.translateClientException(cex);
-		}
-	}
-
-	public long getLong(final String statement) {
-
-		try {
-
-			logQuery(statement);
-			return getLong(statement, Collections.EMPTY_MAP);
-
-		} catch (TransientException tex) {
-			closed = true;
-			throw new RetryException(tex);
-		} catch (NoSuchRecordException nex) {
-			throw new NotFoundException(nex);
-		} catch (ServiceUnavailableException ex) {
-			throw new NetworkException(ex.getMessage(), ex);
-		} catch (DatabaseException dex) {
-			throw ReactiveSessionTransaction.translateDatabaseException(dex);
-		} catch (ClientException cex) {
-			throw ReactiveSessionTransaction.translateClientException(cex);
-		}
-	}
-
-	public long getLong(final String statement, final Map<String, Object> map) {
-
-		try {
-
-			logQuery(statement, map);
-			return Mono.from(tx.run(statement, map).records()).block().get(0).asLong();
-
-		} catch (TransientException tex) {
-			closed = true;
-			throw new RetryException(tex);
-		} catch (NoSuchRecordException nex) {
-			throw new NotFoundException(nex);
-		} catch (ServiceUnavailableException ex) {
-			throw new NetworkException(ex.getMessage(), ex);
-		} catch (DatabaseException dex) {
-			throw ReactiveSessionTransaction.translateDatabaseException(dex);
-		} catch (ClientException cex) {
-			throw ReactiveSessionTransaction.translateClientException(cex);
-		}
-	}
-
-	public Object getObject(final String statement, final Map<String, Object> map) {
-
-		try {
-
-			logQuery(statement, map);
-			return Mono.from(tx.run(statement, map).records()).block().get(0).asObject();
-
-		} catch (TransientException tex) {
-			closed = true;
-			throw new RetryException(tex);
-		} catch (NoSuchRecordException nex) {
-			throw new NotFoundException(nex);
-		} catch (ServiceUnavailableException ex) {
-			throw new NetworkException(ex.getMessage(), ex);
-		} catch (DatabaseException dex) {
-			throw ReactiveSessionTransaction.translateDatabaseException(dex);
-		} catch (ClientException cex) {
-			throw ReactiveSessionTransaction.translateClientException(cex);
-		}
-	}
-
-	public Entity getEntity(final String statement, final Map<String, Object> map) {
-
-		try {
-
-			logQuery(statement, map);
-			return Mono.from(tx.run(statement, map).records()).block().get(0).asEntity();
-
-		} catch (TransientException tex) {
-			closed = true;
-			throw new RetryException(tex);
-		} catch (NoSuchRecordException nex) {
-			throw new NotFoundException(nex);
-		} catch (ServiceUnavailableException ex) {
-			throw new NetworkException(ex.getMessage(), ex);
-		} catch (DatabaseException dex) {
-			throw ReactiveSessionTransaction.translateDatabaseException(dex);
-		} catch (ClientException cex) {
-			throw ReactiveSessionTransaction.translateClientException(cex);
-		}
-	}
-
-	public Node getNode(final String statement, final Map<String, Object> map) {
-
-		try {
-
-			logQuery(statement, map);
-
-			final RxResult result = tx.run(statement, map);
-			final Node node       =  Mono.from(result.records()).block().get(0).asNode();
-
+			// touch result to force evaluation
 			Mono.from(result.consume()).block();
 
-			return node;
-
-		} catch (TransientException tex) {
-			closed = true;
-			throw new RetryException(tex);
-		} catch (NoSuchRecordException nex) {
-			throw new NotFoundException(nex);
-		} catch (ServiceUnavailableException ex) {
-			throw new NetworkException(ex.getMessage(), ex);
-		} catch (DatabaseException dex) {
-			throw ReactiveSessionTransaction.translateDatabaseException(dex);
-		} catch (ClientException cex) {
-			throw ReactiveSessionTransaction.translateClientException(cex);
 		}
+
+		return value;
+
 	}
 
-	public Relationship getRelationship(final String statement, final Map<String, Object> map) {
+	@Override
+	public Value singleTransactionValue(final String statement, final Map<String, Object> map, boolean eager) {
+
+		return firstTransactionValue(statement, map, eager);
+
+	}
+
+	@Override
+	public void collectRecord(String statement, Map<String, Object> map, StructrMono mono) {
 
 		try {
 
 			logQuery(statement, map);
-			return Mono.from(tx.run(statement, map).records()).block().get(0).asRelationship();
+			//return new ReactiveFluxWrapper(Flux.from(tx.run(statement, map).records()));
 
 		} catch (TransientException tex) {
 			closed = true;
@@ -340,14 +183,16 @@ class ReactiveSessionTransaction implements org.structr.api.Transaction {
 		} catch (ClientException cex) {
 			throw ReactiveSessionTransaction.translateClientException(cex);
 		}
+
 	}
 
-	public Flux<Record> collectRecords(final String statement, final Map<String, Object> map) {
+	@Override
+	public void collectRecords(final String statement, final Map<String, Object> map, StructrFlux flux) {
 
 		try {
 
 			logQuery(statement, map);
-			return Flux.from(tx.run(statement, map).records());
+			//return new ReactiveFluxWrapper(Flux.from(tx.run(statement, map).records()));
 
 		} catch (TransientException tex) {
 			closed = true;
@@ -361,29 +206,10 @@ class ReactiveSessionTransaction implements org.structr.api.Transaction {
 		} catch (ClientException cex) {
 			throw ReactiveSessionTransaction.translateClientException(cex);
 		}
+
 	}
 
-	public Iterable<String> getStrings(final String statement, final Map<String, Object> map) {
-
-		try {
-
-			logQuery(statement, map);
-			return new IteratorWrapper<>(Mono.from(tx.run(statement, map).records()).block().get(0).asList(Values.ofString()).iterator());
-
-		} catch (TransientException tex) {
-			closed = true;
-			throw new RetryException(tex);
-		} catch (NoSuchRecordException nex) {
-			throw new NotFoundException(nex);
-		} catch (ServiceUnavailableException ex) {
-			throw new NetworkException(ex.getMessage(), ex);
-		} catch (DatabaseException dex) {
-			throw ReactiveSessionTransaction.translateDatabaseException(dex);
-		} catch (ClientException cex) {
-			throw ReactiveSessionTransaction.translateClientException(cex);
-		}
-	}
-
+	@Override
 	public Iterable<Map<String, Object>> run(final String statement, final Map<String, Object> map) {
 
 		try {
@@ -392,7 +218,9 @@ class ReactiveSessionTransaction implements org.structr.api.Transaction {
 
 			final Iterable<Map<String, Object>> iterable = Iterables.map(new RecordMapMapper(db), Flux.from(tx.run(statement, map).records()).toIterable());
 
-			iterable.iterator().hasNext();
+			// TODO: fix me, currently needed to execute queries who's result is not read
+			final Iterator<Map<String, Object>> iterator = iterable.iterator();
+			iterator.hasNext();
 
 			return iterable;
 
@@ -410,6 +238,7 @@ class ReactiveSessionTransaction implements org.structr.api.Transaction {
 		}
 	}
 
+	@Override
 	public void set(final String statement, final Map<String, Object> map) {
 
 		try {
@@ -431,10 +260,7 @@ class ReactiveSessionTransaction implements org.structr.api.Transaction {
 		}
 	}
 
-	public void logQuery(final String statement) {
-		logQuery(statement, null);
-	}
-
+	@Override
 	public void logQuery(final String statement, final Map<String, Object> map) {
 
 		if (db.logQueries()) {
@@ -457,135 +283,4 @@ class ReactiveSessionTransaction implements org.structr.api.Transaction {
 		}
 	}
 
-	public void deleted(final NodeWrapper wrapper) {
-		deletedNodes.add(wrapper.getDatabaseId());
-	}
-
-	public void deleted(final RelationshipWrapper wrapper) {
-		deletedRels.add(wrapper.getDatabaseId());
-	}
-
-	public boolean isDeleted(final EntityWrapper wrapper) {
-
-		if (wrapper instanceof NodeWrapper) {
-			return deletedNodes.contains(wrapper.getDatabaseId());
-		}
-
-		if (wrapper instanceof RelationshipWrapper) {
-			return deletedRels.contains(wrapper.getDatabaseId());
-		}
-
-		return false;
-	}
-
-	public void modified(final EntityWrapper wrapper) {
-		modifiedEntities.add(wrapper);
-	}
-
-	public void accessed(final EntityWrapper wrapper) {
-		accessedEntities.add(wrapper);
-	}
-
-	public void setIsPing(final boolean isPing) {
-		this.isPing = isPing;
-	}
-
-	@Override
-	public long getTransactionId() {
-		return this.transactionId;
-	}
-
-	public Object getTransactionKey() {
-		// we need a simple object that can be used in a weak hash map
-		return transactionKey;
-	}
-
-	// ----- public static methods -----
-	public static RuntimeException translateClientException(final ClientException cex) {
-
-		switch (cex.code()) {
-
-			case "Neo.ClientError.Schema.ConstraintValidationFailed":
-				throw new ConstraintViolationException(cex, cex.code(), cex.getMessage());
-
-			// add handlers / translated exceptions for ClientExceptions here..
-		}
-
-		// wrap exception if no other cause could be found
-		throw new UnknownClientException(cex, cex.code(), cex.getMessage());
-	}
-
-	public static RuntimeException translateDatabaseException(final DatabaseException dex) {
-
-		switch (dex.code()) {
-
-			case "Neo.DatabaseError.General.UnknownError":
-				throw new DataFormatException(dex, dex.code(), dex.getMessage());
-
-			// add handlers / translated exceptions for DatabaseExceptions here..
-		}
-
-		// wrap exception if no other cause could be found
-		throw new UnknownDatabaseException(dex, dex.code(), dex.getMessage());
-	}
-
-	// ----- nested classes -----
-	public class IteratorWrapper<T> implements Iterable<T> {
-
-		private Iterator<T> iterator = null;
-
-		public IteratorWrapper(final Iterator<T> iterator) {
-			this.iterator = iterator;
-		}
-
-		@Override
-		public Iterator<T> iterator() {
-			return new CloseableIterator<>(iterator);
-		}
-	}
-
-	public class CloseableIterator<T> implements Iterator<T>, AutoCloseable {
-
-		private Iterator<T> iterator = null;
-
-		public CloseableIterator(final Iterator<T> iterator) {
-			this.iterator = iterator;
-		}
-
-		@Override
-		public boolean hasNext() {
-
-			try {
-				return iterator.hasNext();
-
-			} catch (ClientException dex) {
-				throw ReactiveSessionTransaction.translateClientException(dex);
-			} catch (DatabaseException dex) {
-				throw ReactiveSessionTransaction.translateDatabaseException(dex);
-			}
-		}
-
-		@Override
-		public T next() {
-
-			try {
-
-				return iterator.next();
-
-			} catch (ClientException dex) {
-				throw ReactiveSessionTransaction.translateClientException(dex);
-			} catch (DatabaseException dex) {
-				throw ReactiveSessionTransaction.translateDatabaseException(dex);
-			}
-		}
-
-		@Override
-		public void close() throws Exception {
-
-			if (iterator instanceof Result) {
-
-				((Result)iterator).consume();
-			}
-		}
-	}
 }

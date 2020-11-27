@@ -171,7 +171,7 @@ public class IterableQueueingRecordConsumer implements Iterable<Record>, Iterato
 			// start fetching of next result portion while waiting for results
 			if (!started.getAndSet(true)) {
 
-				final ReactiveSessionTransaction tx = db.getCurrentTransaction(false);
+				final SessionTransaction tx = db.getCurrentTransaction(false);
 				if (tx != null && !tx.isClosed()) {
 
 					throw new IllegalStateException("Cannot use IterableQueueingRecordConsumer with ReactiveSessionTransaction.");

@@ -18,10 +18,15 @@
  */
 package org.structr.bolt;
 
+import org.neo4j.driver.Record;
 import org.structr.api.graph.Node;
+import org.structr.api.search.QueryContext;
 import org.structr.api.search.SortOrder;
 import org.structr.api.search.SortSpec;
 import org.structr.api.util.Iterables;
+import org.structr.bolt.reactive.PaginatedQueueingFlux;
+import org.structr.bolt.reactive.QueueingFlux;
+import org.structr.bolt.reactive.StructrFlux;
 
 /**
  *
@@ -100,6 +105,14 @@ class CypherNodeIndex extends AbstractCypherIndex<Node> {
 
 	@Override
 	public Iterable<Node> getResult(final AdvancedCypherQuery query) {
-		return Iterables.map(new NodeNodeMapper(db), Iterables.map(new RecordNodeMapper(), new QueryIterable(db, query)));
+
+		//final Iterable<Record> records = new QueryIterable(db, query);
+
+		final StructrFlux flux = new PaginatedQueueingFlux(this.db, query);
+		flux.initialize();
+
+		return Iterables.map(new NodeNodeMapper(db), Iterables.map(new RecordNodeMapper(), flux));
 	}
+
+
 }

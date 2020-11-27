@@ -233,7 +233,11 @@ public class BasicTest extends StructrTest {
 
 				assertEquals("Node should have been deleted", 0, result.size());
 
-			} catch (FrameworkException fe) {}
+			} catch (FrameworkException fe) {
+
+				logger.warn("1)", fe);
+
+			}
 
 		} catch (FrameworkException ex) {
 
