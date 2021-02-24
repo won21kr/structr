@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Structr GmbH
+ * Copyright (C) 2010-2021 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -318,11 +318,11 @@ public interface Content extends DOMNode, Text, NonIndexed, Favoritable {
 			if (!isShadowPage) {
 
 				final DOMNode ownerDocument = thisNode.getOwnerDocumentAsSuperUser();
-				logger.error("Error while evaluating script in page {}[{}], Content[{}]", ownerDocument.getProperty(AbstractNode.name), ownerDocument.getProperty(AbstractNode.id), thisNode, t);
+				DOMNode.logScriptingError(logger, t, "Error while evaluating script in page {}[{}], Content[{}]", ownerDocument.getProperty(AbstractNode.name), ownerDocument.getProperty(AbstractNode.id), thisNode.getUuid());
 
 			} else {
 
-				logger.error("Error while evaluating script in shared component, Content[{}]", thisNode, t);
+				DOMNode.logScriptingError(logger, t, "Error while evaluating script in shared component, Content[{}]", thisNode.getUuid());
 			}
 		}
 	}

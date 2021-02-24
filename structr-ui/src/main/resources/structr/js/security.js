@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Structr GmbH
+ * Copyright (C) 2010-2021 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -35,30 +35,29 @@ var _Security = {
 		_Pager.initPager('groups',          'Group', 1, 25, 'name', 'asc');
 		_Pager.initPager('resource-access', 'ResourceAccess', 1, 25, 'signature', 'asc');
 	},
-	onload: function() {
+	onload: async function() {
 
 		_Security.init();
 
 		Structr.updateMainHelpLink(Structr.getDocumentationURLForTopic('security'));
 
-		Structr.fetchHtmlTemplate('security/main', {}, function (html) {
+		let html = await Structr.fetchHtmlTemplate('security/main', {});
 
-			main.append(html);
+		main.append(html);
 
-			_Security.groups = $('#groups');
-			_Security.users = $('#users');
-			_Security.resourceAccesses = $('#resourceAccesses');
+		_Security.groups = $('#groups');
+		_Security.users = $('#users');
+		_Security.resourceAccesses = $('#resourceAccesses');
 
-			var activeTab = LSWrapper.getItem(_Security.securityTabKey) || 'usersAndGroups';
+		var activeTab = LSWrapper.getItem(_Security.securityTabKey) || 'usersAndGroups';
+		_Security.selectTab(activeTab);
+
+		$('#securityTabsMenu > li > a').on('click', function() {
+			activeTab = $(this).attr('id').slice(0, -1);
 			_Security.selectTab(activeTab);
-
-			$('#securityTabsMenu > li > a').on('click', function() {
-				activeTab = $(this).attr('id').slice(0, -1);
-				_Security.selectTab(activeTab);
-			});
-
-			Structr.unblockMenu(100);
 		});
+
+		Structr.unblockMenu(100);
 	},
 	selectTab: function(tab) {
 
@@ -80,33 +79,32 @@ var _Security = {
 
 var _UsersAndGroups = {
 
-	refreshUsers: function() {
+	refreshUsers: async function() {
 
-		Structr.fetchHtmlTemplate('security/button.user.new', {}, function (html) {
+		let html = await Structr.fetchHtmlTemplate('security/button.user.new', {});
 
-			_Security.users.empty();
-			_Security.users.append(html);
+		_Security.users.empty();
+		_Security.users.append(html);
 
-			$('.add_user_icon', main).on('click', function(e) {
-				e.stopPropagation();
-				return Command.create({type: $('select#user-type').val()});
-			});
-
-			$('select#user-type').on('change', function() {
-				$('#add-user-button', main).find('span').text('Add ' + $(this).val());
-			});
-
-			_Schema.getDerivedTypes('org.structr.dynamic.User', [], function(types) {
-				var elem = $('select#user-type');
-				types.forEach(function(type) {
-					elem.append('<option value="' + type + '">' + type + '</option>');
-				});
-			});
-
-			var userPager = _Pager.addPager('users', _Security.users, true, 'User', 'public');
-			userPager.pager.append('<div>Filter: <input type="text" class="filter" data-attribute="name"></th></div>');
-			userPager.activateFilterElements();
+		$('.add_user_icon', main).on('click', function(e) {
+			e.stopPropagation();
+			return Command.create({type: $('select#user-type').val()});
 		});
+
+		$('select#user-type').on('change', function() {
+			$('#add-user-button', main).find('span').text('Add ' + $(this).val());
+		});
+
+		_Schema.getDerivedTypes('org.structr.dynamic.User', [], function(types) {
+			var elem = $('select#user-type');
+			types.forEach(function(type) {
+				elem.append('<option value="' + type + '">' + type + '</option>');
+			});
+		});
+
+		var userPager = _Pager.addPager('users', _Security.users, true, 'User', 'public');
+		userPager.pager.append('<div>Filter: <input type="text" class="filter" data-attribute="name"></th></div>');
+		userPager.activateFilterElements();
 	},
 	createUserElement:function (user, group) {
 
@@ -271,34 +269,33 @@ var _UsersAndGroups = {
 	deleteUser: function(button, user) {
 		_Entities.deleteNode(button, user);
 	},
-	refreshGroups: function() {
+	refreshGroups: async function() {
 
-		Structr.fetchHtmlTemplate('security/button.group.new', {}, function (html) {
+		let html = await Structr.fetchHtmlTemplate('security/button.group.new', {});
 
-			_Security.groups.empty();
-			_Security.groups.append(html);
+		_Security.groups.empty();
+		_Security.groups.append(html);
 
-			$('.add_group_icon', main).on('click', function(e) {
-				e.stopPropagation();
-				return Command.create({type: $('select#group-type').val()});
-			});
-
-			$('select#group-type').on('change', function() {
-				$('#add-group-button', main).find('span').text('Add ' + $(this).val());
-			});
-
-			// list types that extend User
-			_Schema.getDerivedTypes('org.structr.dynamic.Group', [], function(types) {
-				var elem = $('select#group-type');
-				types.forEach(function(type) {
-					elem.append('<option value="' + type + '">' + type + '</option>');
-				});
-			});
-
-			var groupPager = _Pager.addPager('groups', _Security.groups, true, 'Group', 'public');
-			groupPager.pager.append('<div>Filter: <input type="text" class="filter" data-attribute="name"></div>');
-			groupPager.activateFilterElements();
+		$('.add_group_icon', main).on('click', function(e) {
+			e.stopPropagation();
+			return Command.create({type: $('select#group-type').val()});
 		});
+
+		$('select#group-type').on('change', function() {
+			$('#add-group-button', main).find('span').text('Add ' + $(this).val());
+		});
+
+		// list types that extend User
+		_Schema.getDerivedTypes('org.structr.dynamic.Group', [], function(types) {
+			var elem = $('select#group-type');
+			types.forEach(function(type) {
+				elem.append('<option value="' + type + '">' + type + '</option>');
+			});
+		});
+
+		var groupPager = _Pager.addPager('groups', _Security.groups, true, 'Group', 'public');
+		groupPager.pager.append('<div>Filter: <input type="text" class="filter" data-attribute="name"></div>');
+		groupPager.activateFilterElements();
 	},
 	createGroupElement: function (group) {
 
@@ -407,31 +404,47 @@ var _UsersAndGroups = {
 
 var _ResourceAccessGrants = {
 
-	refreshResourceAccesses: function() {
+	refreshResourceAccesses: async function() {
+
 		_Security.resourceAccesses.empty();
 
-		Structr.fetchHtmlTemplate('security/resource-access', {}, function (html) {
+		let html = await Structr.fetchHtmlTemplate('security/resource-access', {});
 
-			_Security.resourceAccesses.append(html);
+		_Security.resourceAccesses.append(html);
 
-			let raPager = _Pager.addPager('resource-access', $('#resourceAccessesPager', _Security.resourceAccesses), true, 'ResourceAccess', 'public');
+		Structr.activateCommentsInElement(_Security.resourceAccesses);
 
-			raPager.cleanupFunction = function () {
-				$('#resourceAccessesTable tbody tr').remove();
-			};
+		let raPager = _Pager.addPager('resource-access', $('#resourceAccessesPager', _Security.resourceAccesses), true, 'ResourceAccess', undefined, undefined, _ResourceAccessGrants.customPagerTransportFunction, 'id,flags,name,type,signature,isResourceAccess,visibleToPublicUsers,visibleToAuthenticatedUsers,grantees');
 
-			raPager.activateFilterElements(_Security.resourceAccesses);
+		raPager.cleanupFunction = function () {
+			$('#resourceAccessesTable tbody tr').remove();
+		};
 
-			$('.add_grant_icon', _Security.resourceAccesses).on('click', function (e) {
-				_ResourceAccessGrants.addResourceGrant(e);
-			});
+		raPager.activateFilterElements(_Security.resourceAccesses);
 
-			$('#resource-signature', _Security.resourceAccesses).on('keyup', function (e) {
-				if (e.keyCode === 13) {
-					_ResourceAccessGrants.addResourceGrant(e);
-				}
-			});
+		$('.add_grant_icon', _Security.resourceAccesses).on('click', function (e) {
+			_ResourceAccessGrants.addResourceGrant(e);
 		});
+
+		$('#resource-signature', _Security.resourceAccesses).on('keyup', function (e) {
+			if (e.keyCode === 13) {
+				_ResourceAccessGrants.addResourceGrant(e);
+			}
+		});
+	},
+	customPagerTransportFunction: function(type, pageSize, page, filterAttrs, callback) {
+		let filterString = "";
+		let presentFilters = Object.keys(filterAttrs);
+		if (presentFilters.length > 0) {
+			filterString = 'WHERE ' + presentFilters.map(function(key) {
+				if (key === 'flags') {
+					return (filterAttrs[key] === true) ? 'n.flags > 0' : 'n.flags >= 0';
+				} else {
+					return 'n.' + key + ' =~ "(?i).*' + filterAttrs[key] + '.*"';
+				}
+			}).join(' AND ');
+		}
+		Command.cypher('MATCH (n:ResourceAccess) ' + filterString + ' RETURN DISTINCT n ORDER BY n.' + sortKey[type] + ' ' + sortOrder[type], undefined, callback, pageSize, page);
 	},
 	addResourceGrant: function(e) {
 		e.stopPropagation();
@@ -460,14 +473,16 @@ var _ResourceAccessGrants = {
 	deleteResourceAccess: function(button, resourceAccess) {
 		_Entities.deleteNode(button, resourceAccess);
 	},
-	appendResourceAccessElement: function(resourceAccess) {
+	getVerbFromKey: function(key = '') {
+		return key.substring(key.lastIndexOf('_')+1, key.length);
+	},
+	appendResourceAccessElement: function(resourceAccess, blinkAfterUpdate = true) {
 
 		if (!_Security.resourceAccesses || !_Security.resourceAccesses.is(':visible')) {
 			return;
 		}
 
-		var mask = {
-			//FORBIDDEN                   : 0,
+		let mask = {
 			AUTH_USER_GET               : 1,
 			AUTH_USER_PUT               : 2,
 			AUTH_USER_POST              : 4,
@@ -487,27 +502,112 @@ var _ResourceAccessGrants = {
 
 		let flags = parseInt(resourceAccess.flags);
 
-		let trHtml = '<tr id="id_' + resourceAccess.id + '" class="resourceAccess"><td class="title-cell"><b title="' + resourceAccess.signature + '" class="name_">' + resourceAccess.signature + '</b></td>';
+		let trHtml = '<tr id="id_' + resourceAccess.id + '" class="resourceAccess"><td class="title-cell"><b class="name_">' + resourceAccess.signature + '</b></td>';
 
-		Object.keys(mask).forEach(function(key) {
-			trHtml += '<td><input type="checkbox" ' + (flags & mask[key] ? 'checked="checked"' : '') + ' data-flag="' + mask[key] + '" class="resource-access-flag "></td>';
-		});
+		let noAuthAccessPossible = resourceAccess.visibleToAuthenticatedUsers === false && (!resourceAccess.grantees || resourceAccess.grantees.length === 0);
 
-		trHtml += '<td><input type="text" class="bitmask" size="4" value="' + flags + '"></td>' +
-				'<td><i title="Delete Resource Access ' + resourceAccess.id + '" class="delete-resource-access button ' + _Icons.getFullSpriteClass(_Icons.delete_icon) + '" /></td></tr>';
+		let flagWarningTexts = {};
+		let flagSanityInfos  = {};
+
+		let hasAuthFlag    = false;
+		let hasNonAuthFlag = false;
+
+		for (let key in mask) {
+
+			let flagIsSet = (flags & mask[key]);
+
+			let disabledBecauseNotPublic    = (key.startsWith('NON_AUTH_') && resourceAccess.visibleToPublicUsers === false);
+			let disabledBecausePublic       = (key.startsWith('AUTH_')     && resourceAccess.visibleToPublicUsers === true);
+			let disabledBecauseNoAuthAccess = (key.startsWith('AUTH_')     && noAuthAccessPossible);
+
+			if (flagIsSet && disabledBecausePublic) {
+				// CRITICAL: If the grant is visibleToPublicUsers and includes grants for authenticated users it can be a security threat! Disable and WARN
+				let arr = flagWarningTexts[key] || [];
+				arr.push('Should <b>not</b> be set because the grant itself is visible to public users. Every authenticated user can also see the grant which is probably not intended.<br><br>This might have a <b>security impact</b> as the resource is accessible with the <b>' + _ResourceAccessGrants.getVerbFromKey(key) + '</b> method (<b>but not the data</b> behind that resource)!<br><br><b>Quick Fix</b>: Remove the visibleToPublicUsers flag from this grant.');
+				flagWarningTexts[key] = arr;
+			}
+			if (flagIsSet && disabledBecauseNotPublic) {
+				let arr = flagSanityInfos[key] || [];
+				arr.push('Active for public users but grant can not be seen by public users.<br><br>This has no security-impact and is probably only misconfigured.');
+				flagSanityInfos[key] = arr;
+			}
+			if (flagIsSet && disabledBecauseNoAuthAccess) {
+				let arr = flagSanityInfos[key] || [];
+				arr.push('Active for authenticated users but grant can not be seen by authenticated users or a group.<br><br>This has no security-impact and is probably only misconfigured.');
+				flagSanityInfos[key] = arr;
+			}
+
+			hasNonAuthFlag = hasNonAuthFlag || (flagIsSet && key.startsWith('NON_AUTH_'));
+			hasAuthFlag    = hasAuthFlag    || (flagIsSet && key.startsWith('AUTH_'));
+
+			let isDisabled = false && (disabledBecauseNotPublic || disabledBecauseNoAuthAccess);
+
+			let additionalClasses = [];
+			if (key === 'AUTH_USER_GET') { additionalClasses.push('bl-1'); }
+			if (key === 'AUTH_USER_PATCH') { additionalClasses.push('br-1'); }
+			if (key === 'NON_AUTH_USER_PATCH') { additionalClasses.push('br-1'); }
+
+			trHtml += '<td class="' + additionalClasses.join(' ') + '"><input type="checkbox" ' + (flagIsSet ? 'checked="checked"' : '') + (isDisabled ? ' disabled' : '') + ' data-flag="' + mask[key] + '" class="resource-access-flag" data-key="' + key +'"></td>';
+		}
+
+		trHtml += '<td><input type="text" class="bitmask" size="4" value="' + flags + '"></td><td>' +
+				'<i class="acl-resource-access button ' + _Icons.getFullSpriteClass(_Icons.key_icon) + '" /> ' +
+				'<i title="Delete Resource Access ' + resourceAccess.id + '" class="delete-resource-access button ' + _Icons.getFullSpriteClass(_Icons.delete_icon) + '" />' +
+				'</td></tr>';
 
 		let tr = $(trHtml);
+
+		if (hasAuthFlag && hasNonAuthFlag) {
+			Structr.appendInfoTextToElement({
+				text: 'Grant has flags for authenticated and public users. This is probably misconfigured and should be changed or split into two grants.',
+				element: $('.title-cell b', tr),
+				customToggleIcon: _Icons.error_icon,
+				css: {
+					float:'right',
+					marginRight: '5px'
+				}
+			});
+		}
+
+		for (let key in flagWarningTexts) {
+			Structr.appendInfoTextToElement({
+				text: flagWarningTexts[key].join('<br><br>'),
+				element: $('input[data-key=' + key + ']', tr),
+				customToggleIcon: _Icons.error_icon,
+				css: {position:'absolute'},
+				insertAfter: true
+			});
+		}
+
+		for (let key in flagSanityInfos) {
+			if (!flagWarningTexts[key]) {
+				Structr.appendInfoTextToElement({
+					text: flagSanityInfos[key].join('<br><br>'),
+					element: $('input[data-key=' + key + ']', tr),
+					customToggleIcon: _Icons.warning_icon,
+					css: {position:'absolute'},
+					insertAfter: true
+				});
+			}
+		}
+
+		_Entities.bindAccessControl($('.acl-resource-access', tr), resourceAccess);
 
 		let replaceElement = $('#resourceAccessesTable #id_' + resourceAccess.id);
 
 		if (replaceElement && replaceElement.length) {
+
 			replaceElement.replaceWith(tr);
-			blinkGreen(tr.find('td'));
+			if (blinkAfterUpdate) {
+				blinkGreen(tr.find('td'));
+			}
+
 		} else {
+
 			$('#resourceAccessesTable').append(tr);
 		}
 
-		var bitmaskInput = $('.bitmask', tr);
+		let bitmaskInput = $('.bitmask', tr);
 		bitmaskInput.on('blur', function() {
 			_ResourceAccessGrants.updateResourceAccessFlags(resourceAccess.id, $(this).val());
 		});
@@ -524,7 +624,7 @@ var _ResourceAccessGrants = {
 			_ResourceAccessGrants.deleteResourceAccess(this, resourceAccess);
 		});
 
-		var div = Structr.node(resourceAccess.id);
+		let div = Structr.node(resourceAccess.id);
 
 		$('input[type=checkbox].resource-access-flag', tr).on('change', function() {
 			let newFlags = 0;
@@ -539,9 +639,12 @@ var _ResourceAccessGrants = {
 	updateResourceAccessFlags: function (id, newFlags) {
 
 		Command.setProperty(id, 'flags', newFlags, false, function() {
-			Command.get(id, 'id,flags,name,signature', function(obj) {
-				_ResourceAccessGrants.appendResourceAccessElement(obj);
-			});
+			_ResourceAccessGrants.updateResourcesAccessRow(id);
+		});
+	},
+	updateResourcesAccessRow: function (id, blinkGreen = true) {
+		Command.get(id, 'id,flags,type,signature,visibleToPublicUsers,visibleToAuthenticatedUsers,grantees', function(obj) {
+			_ResourceAccessGrants.appendResourceAccessElement(obj, blinkGreen);
 		});
 	}
 };

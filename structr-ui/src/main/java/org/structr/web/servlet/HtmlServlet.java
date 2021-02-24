@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Structr GmbH
+ * Copyright (C) 2010-2021 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -916,6 +916,10 @@ public class HtmlServlet extends AbstractServletBase implements HttpServiceServl
 
 			@Override
 			public void onError(Throwable t) {
+
+				// prevent async from running into default timeout of 30s
+				async.complete();
+
 				if (t instanceof QuietException) {
 					// ignore exceptions which (by jettys standards) should be handled less verbosely
 				} else {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Structr GmbH
+ * Copyright (C) 2010-2021 Structr GmbH
  *
  * This file is part of Structr <http://structr.org>.
  *
@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,6 +84,7 @@ import org.structr.web.entity.LinkSource;
 import org.structr.web.entity.Linkable;
 import org.structr.web.entity.Renderable;
 import org.structr.web.property.CustomHtmlAttributeProperty;
+import org.structr.web.property.MethodProperty;
 import org.structr.websocket.command.CreateComponentCommand;
 import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
@@ -145,6 +147,8 @@ public interface DOMNode extends NodeInterface, Node, Renderable, DOMAdoptable, 
 		type.addPropertyGetter("ownerDocument", Page.class);
 		type.addPropertyGetter("sharedComponent", DOMNode.class);
 		type.addPropertyGetter("sharedComponentConfiguration", String.class);
+
+		type.addCustomProperty("sortedChildren", MethodProperty.class.getName()).setTypeHint("DOMNode[]").setFormat(DOMNode.class.getName() + ", getChildNodes");
 
 		type.overrideMethod("onCreation",                  true,  DOMNode.class.getName() + ".onCreation(this, arg0, arg1);");
 		type.overrideMethod("onModification",              true,  DOMNode.class.getName() + ".onModification(this, arg0, arg1, arg2);");
@@ -345,6 +349,10 @@ public interface DOMNode extends NodeInterface, Node, Renderable, DOMAdoptable, 
 	String getDataHash();
 	String getDataKey();
 	String getPositionPath();
+
+	default String getCssClass() {
+		return null;
+	}
 
 	String getCypherQuery();
 	String getRestQuery();
@@ -1088,11 +1096,11 @@ public interface DOMNode extends NodeInterface, Node, Renderable, DOMAdoptable, 
 			if (!isShadowPage) {
 
 				final DOMNode ownerDocument = thisNode.getOwnerDocumentAsSuperUser();
-				logger.error("Error while evaluating hide condition '{}' in page {}[{}], DOMNode[{}]", _hideConditions, ownerDocument.getProperty(AbstractNode.name), ownerDocument.getProperty(AbstractNode.id), thisNode, ex);
+				DOMNode.logScriptingError(logger, ex, "Error while evaluating hide condition '{}' in page {}[{}], DOMNode[{}]", _hideConditions, ownerDocument.getProperty(AbstractNode.name), ownerDocument.getProperty(AbstractNode.id), thisNode.getUuid());
 
 			} else {
 
-				logger.error("Error while evaluating hide condition '{}' in shared component, DOMNode[{}]", _hideConditions, thisNode, ex);
+				DOMNode.logScriptingError(logger, ex, "Error while evaluating hide condition '{}' in shared component, DOMNode[{}]", _hideConditions, thisNode.getUuid());
 			}
 		}
 
@@ -1110,15 +1118,35 @@ public interface DOMNode extends NodeInterface, Node, Renderable, DOMAdoptable, 
 			if (!isShadowPage) {
 
 				final DOMNode ownerDocument = thisNode.getOwnerDocumentAsSuperUser();
-				logger.error("Error while evaluating show condition '{}' in page {}[{}], DOMNode[{}]", _showConditions, ownerDocument.getProperty(AbstractNode.name), ownerDocument.getProperty(AbstractNode.id), thisNode, ex);
+				DOMNode.logScriptingError(logger, ex, "Error while evaluating show condition '{}' in page {}[{}], DOMNode[{}]", _showConditions, ownerDocument.getProperty(AbstractNode.name), ownerDocument.getProperty(AbstractNode.id), thisNode.getUuid());
 
 			} else {
 
-				logger.error("Error while evaluating show condition '{}' in shared component, DOMNode[{}]", _showConditions, thisNode, ex);
+				DOMNode.logScriptingError(logger, ex, "Error while evaluating show condition '{}' in shared component, DOMNode[{}]", _showConditions, thisNode.getUuid());
 			}
 		}
 
 		return true;
+	}
+
+	static void logScriptingError (final Logger logger, final Throwable t, String message,  Object... arguments) {
+
+		if (t instanceof UnlicensedScriptException) {
+
+			message += "\n{}";
+			arguments = ArrayUtils.add(arguments, t.getMessage());
+
+		} else if (t.getCause() instanceof UnlicensedScriptException) {
+
+			message += "\n{}";
+			arguments = ArrayUtils.add(arguments, t.getCause().getMessage());
+
+		} else {
+
+			arguments = ArrayUtils.add(arguments, t);
+		}
+
+		logger.error(message, arguments);
 	}
 
 	static boolean shouldBeRendered(final DOMNode thisNode, final RenderContext renderContext) {
