@@ -2027,9 +2027,8 @@ public class ScriptingTest extends StructrTest {
 
 		} catch (FrameworkException fex) {
 
-			logger.warn("", fex);
-
-			fail(fex.getMessage());
+			fex.printStackTrace();
+			fail("Unexpected exception");
 		}
 	}
 
@@ -2065,9 +2064,8 @@ public class ScriptingTest extends StructrTest {
 
 		} catch (FrameworkException ex) {
 
-			logger.warn("", ex);
+			ex.printStackTrace();
 			fail("Unexpected exception");
-
 		}
 	}
 

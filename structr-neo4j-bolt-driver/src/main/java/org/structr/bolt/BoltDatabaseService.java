@@ -126,8 +126,7 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 			try {
 
 				driver = GraphDatabase.driver(databaseDriverUrl,
-						AuthTokens.basic(username, password),
-						Config.build().withEncryption().toConfig()
+					AuthTokens.basic(username, password)
 				);
 
 			} catch (final AuthenticationException auex) {
@@ -138,8 +137,7 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 
 					try {
 						driver = GraphDatabase.driver(databaseDriverUrl,
-								AuthTokens.basic(Settings.Neo4jDefaultUsername.getValue(), Settings.Neo4jDefaultPassword.getValue()),
-								Config.build().withEncryption().toConfig()
+							AuthTokens.basic(Settings.Neo4jDefaultUsername.getValue(), Settings.Neo4jDefaultPassword.getValue())
 						);
 
 						logger.info("Successfully logged in with default credentials.");
@@ -149,8 +147,7 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 						logger.info("Initial database password set to value from config file.");
 
 						driver = GraphDatabase.driver(databaseDriverUrl,
-								AuthTokens.basic(username, password),
-								Config.build().withEncryption().toConfig()
+							AuthTokens.basic(username, password)
 						);
 
 						logger.info("Successfully logged in with configured credentials.");
@@ -198,8 +195,8 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 		if (session == null || session.isClosed()) {
 
 			try {
-				//session = new ReactiveSessionTransaction(this, driver.rxSession());/*
-				session = new NonReactiveSessionTransaction(this, driver.asyncSession());//*/
+				session = new ReactiveSessionTransaction(this, driver.rxSession());
+				//session = new NonReactiveSessionTransaction(this, driver.asyncSession());
 				sessions.set(session);
 
 			} catch (ServiceUnavailableException ex) {
@@ -219,8 +216,8 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 		if (session == null || session.isClosed()) {
 
 			try {
-				//session = new ReactiveSessionTransaction(this, driver.rxSession(), timeoutInSeconds);/*
-				session = new NonReactiveSessionTransaction(this, driver.asyncSession(), timeoutInSeconds);//*/
+				session = new ReactiveSessionTransaction(this, driver.rxSession(), timeoutInSeconds);
+				//session = new NonReactiveSessionTransaction(this, driver.asyncSession(), timeoutInSeconds);//*/
 				sessions.set(session);
 
 			} catch (ServiceUnavailableException ex) {
@@ -1136,10 +1133,9 @@ public class BoltDatabaseService extends AbstractDatabaseService implements Grap
 		try (final Session session = driver.session()) {
 
 			// this call may fail silently (e.g. if the index does not exist yet)
-			try (final org.neo4j.driver.v1.Transaction tx = session.beginTransaction()) {
+			try (final org.neo4j.driver.Transaction tx = session.beginTransaction()) {
 
 				tx.run("CALL dbms.changePassword('" + initialPassword + "')");
-				tx.success();
 
 			} catch (Throwable t) {
 				logger.warn("Unable to change password properties file", t);
