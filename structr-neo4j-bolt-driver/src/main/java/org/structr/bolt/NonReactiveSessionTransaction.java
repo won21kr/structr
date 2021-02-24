@@ -21,6 +21,7 @@ package org.structr.bolt;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.neo4j.driver.*;
@@ -138,24 +139,17 @@ class NonReactiveSessionTransaction extends SessionTransaction {
 		try {
 
 			//tx.close();
-			AtomicBoolean sessionClosed = new AtomicBoolean(false);
-
-			session.closeAsync().thenCompose((Void v) -> {
-				sessionClosed.set(true);
-				return new CompletableFuture<>();
-			});
-
-			waitOrTimeout(sessionClosed);
-
-			if(!sessionClosed.get()) {
-				System.out.println("Error");
-			}
+			session.closeAsync().toCompletableFuture().get();
 
 		} catch (TransientException tex) {
 
 			// transient exceptions can be retried
 			throw new RetryException(tex);
 
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			e.printStackTrace();
 		} finally {
 
 			// Notify all nodes that are modified in this transaction

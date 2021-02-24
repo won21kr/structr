@@ -109,7 +109,11 @@ class CypherNodeIndex extends AbstractCypherIndex<Node> {
 		//final Iterable<Record> records = new QueryIterable(db, query);
 
 		final StructrFlux flux = new PaginatedQueueingFlux(this.db, query);
-		flux.initialize();
+
+		final QueryContext context = query.getQueryContext();
+		if(context != null && !context.isDeferred()) {
+			flux.initialize();
+		}
 
 		return Iterables.map(new NodeNodeMapper(db), Iterables.map(new RecordNodeMapper(), flux));
 	}
